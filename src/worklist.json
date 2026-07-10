@@ -1,0 +1,50 @@
+[
+    {
+        "url":  "https://justjoin.it/job-offer/randlab--net-backend-developer-k-m-n--warszawa-net",
+        "title":  ".NET Backend Developer (k/m/n)",
+        "company":  "Randlab",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/symfonia-inzynier-inzynierka-oprogramowania-warszawa-net",
+        "title":  "Inżynier/Inżynierka Oprogramowania",
+        "company":  "Symfonia",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/nexio-management--net-sharepoint-developer-k-m-x--warszawa-net-9de30c24",
+        "title":  ".NET SharePoint Developer (k/m/x)",
+        "company":  "Nexio Management",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/antal-full-stack-developer-c-azure-ai-llm--warszawa-net",
+        "title":  "Full Stack Developer (C#, Azure, AI/LLM)",
+        "company":  "Antal",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/rits-professional-services--net-developer-warszawa-net-d6bc22f0",
+        "title":  ".NET Developer",
+        "company":  "RITS Professional Services",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/credit-agricole-bank-polska-s-a--specjalistka-projektantka-specjalista-projektant-robotyzacji-procesow-wroclaw-net",
+        "title":  "Specjalistka/Specjalista Projektant Robotyzacji Procesów",
+        "company":  "Credit Agricole Bank Polska S.A.",
+        "location":  "Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    }
+]
