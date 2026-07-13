@@ -2,8 +2,39 @@
 
 Read this **only** when the Apply button hands you off to an external ATS
 (`applier_instructions.md` §6). Each recipe below was measured on a real run. Find your ATS,
-follow it, ignore the rest. If your ATS isn't here, the principles in §6 are enough — and add
-a recipe here afterwards if you learned something that isn't derivable from them.
+follow it, ignore the rest. If your ATS isn't here, the principles in §6 are enough.
+
+**What earns a section here:** a **widely-used ATS product** — one vendor's form that many
+different employers use (eRecruiter, Workday, Avature, SmartRecruiters, Greenhouse, Lever,
+Teamtailor, tomHRM …) — or a **general trap** any form can spring. **What does not:** one
+company's homemade career page. Every applier pays for this file's length on every external
+offer, so a recipe used on a single employer costs more than it returns. If a homemade form
+teaches something form-general, put the lesson in *General traps* and don't name the company.
+
+---
+
+## General traps (any vendor)
+
+### Hidden / off-DOM file input
+**Symptom:** `file_upload` errors "Element is not a file input", or `find` only turns up an
+`<input type=text>` proxy. The real input is `display:none`, sealed in a same-origin
+`<iframe>`, or attached to `<body>` by a Dropzone widget — the accessibility tree does not
+reach it, so `find` / `read_page` cannot see it. Seen on three unrelated vendors; assume it.
+
+**Do not** click the visible "choose file" button — it opens a native OS picker you cannot
+operate.
+
+**Fix**, with `javascript_tool` (the page is same-origin and the file is the user's own):
+
+1. Locate the real `input[type=file]` — search `document`, every same-origin
+   `contentDocument`, and `<body>`'s own children. **Save its parent + next sibling.**
+2. Give it an `id`; unhide it, and if it sits in an iframe, `document.body.appendChild(...)`
+   it into the **top** document.
+3. `find` it there and `file_upload` the CV onto that ref (this sets `input.files`).
+4. Move it **back** to the saved parent/sibling; clear the temporary `id` and any styles.
+5. Dispatch `input` then `change` on it so the page's own uploader runs natively.
+
+**Confirm** by the attached filename and size appearing on the form (e.g. `CV_….pdf (97kB)`).
 
 ---
 
@@ -31,24 +62,3 @@ The form is Polish → answer in Polish, upload the PL CV.
 8. **Submit is "Wyślij"**, rendered grey but enabled. Check `.disabled` before treating it as
    a block.
 
----
-
-## File input trapped in a same-origin `<iframe>` (seen on Symfonia HR)
-
-**Symptom:** `file_upload` errors "Element is not a file input", or `find` only turns up an
-`<input type=text>` proxy. The accessibility tree does not descend into the iframe, so
-`find` / `read_page` cannot see the real control.
-
-**Do not** click the visible "choose file" button — it opens a native OS picker you cannot
-operate.
-
-**Fix**, with `javascript_tool` (the iframe is same-origin and the file is the user's own):
-
-1. Grab the input and **save its parent + next sibling**:
-   `document.getElementById('iframe_...').contentDocument.querySelector('input[type=file]')`
-2. Give it an `id`, then `document.body.appendChild(...)` to lift it into the **top** document.
-3. `find` it there and `file_upload` the CV onto that ref (this sets `input.files`).
-4. Move it **back** to the saved parent/sibling; clear the temporary `id` and any styles.
-5. Dispatch `input` then `change` on it so the iframe's own uploader runs natively.
-
-**Confirm** by the attached filename and size appearing on the form (e.g. `CV_….pdf (97kB)`).

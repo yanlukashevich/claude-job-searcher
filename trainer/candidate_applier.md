@@ -49,34 +49,22 @@ is clearly casual). Pick the **CV language** the same way (§5).
 5. **Do not attempt to defeat CAPTCHA / anti-bot.** → block (§7.1).
 
 ## 4. Free-text (messages, "why us", open questions)
-**Fill only what is required.** Optional fields stay blank (§6 field-mapping) — with **one
-exception**: the employer-message / "introduce yourself" field. A short human note lifts an
-application; a wall of text sinks it. Everything below is about that note.
+**Compose free text only when the form cannot be submitted without it.** Employer message,
+"introduce yourself", motivation, cover letter, open questions — **every** free-text field
+stays **blank unless it is required** (marked `*` / "wymagane" / rejected on submit). An
+unasked-for note is cost and risk for nothing; blank is the correct answer, and no
+field-mapping bullet (§6) makes an optional one worth filling.
+
+When a field **is** required, write a note, not an essay:
 
 - **1–2 short sentences. Hard cap.** Never a paragraph. Never the CV in prose.
 - **Hook it to something specific in *this* offer's description** — the actual project, the
   domain, or the one technology they lead with. That specificity is what makes it read as
   written by a person rather than generated.
-- **One** concrete real detail from `profile.md` (shipped solo to prod in 3 months · LLM
-  integration · competition win · passed a security audit) — pick the one that matches the
-  hook. Don't stack them. `Pitch` / `Why-me material` are **raw material, never pasted**.
 - First person, plain, conversational. No buzzwords, no "I am writing to express my
   interest", no tech-stack laundry list, no listing years of experience.
 - **Never claim a technology Yan hasn't used.** If the offer's framework isn't his, name the
   language/pattern he *does* have and stop — don't explain the gap, don't apologise for it.
-- Optionally close with a brief offer to talk. No links unless the field asks for them.
-
-Good (EN offer — Flask / AI / React, finance):
-> Hi! The LLM-driven data enrichment is what caught my eye — I recently shipped a React +
-> Python product to production solo, including hands-on LLM integration. Happy to tell you more.
-
-Good (PL offer):
-> Cześć! Zainteresował mnie moduł automatyzacji z LLM — niedawno solo wdrożyłem na produkcję
-> system w React + Python, razem z integracją LLM. Chętnie opowiem więcej.
-
-Bad: three sentences of stack, a "passed security audit / HPC / CI-CD" pile-up, or any
-sentence explaining what Yan *hasn't* done.
-
 - Never contradict the profile or a CV. **Every composed answer is logged verbatim** (§9).
 
 ## 5. CV selection
@@ -155,7 +143,7 @@ navigate → offer URL
  → external ATS? → read ats_quirks.md
  → read every form field (get_page_text / read_page)
  → per field: required + hard fact → copy from profile.md
-              employer-message field → compose 1–2 sentences (§4), form language
+              required free-text → compose 1–2 sentences (§4), form language
               anything else optional → LEAVE BLANK (don't be helpful here)
               required + unknown hard fact → BLOCK (§7.3) and stop filling at once —
                 staged fields don't survive the tab, so finishing the form is waste
@@ -170,9 +158,9 @@ The warm logged-in session is the main protection against justjoin.it's account-
 detection; don't waste it.
 
 ### Field-mapping
-**Default for every optional field: leave it blank.** Only the employer-message field (§4)
-is worth filling when optional. The bullets below map each value's *source* when a field
-must be filled — they never make an optional field (salary, links, availability) worth filling.
+**Default for every optional field: leave it blank** — free-text fields included (§4). The
+bullets below map each value's *source* when a field must be filled; they never make an
+optional field (salary, links, availability, messages) worth filling.
 
 - Name / email / phone → Personal (use E.164 phone when a country code is wanted).
 - LinkedIn / GitHub / portfolio → Links. If LinkedIn is missing and the field is optional, skip it; only a *required* one is a problem.
@@ -182,8 +170,7 @@ must be filled — they never make an optional field (salary, links, availabilit
 - Language level → Languages, via the CEFR mapping in `profile.md` — after reading the form's actual option labels.
 - **"Years of X"** → Years-per-technology table. Present confidently but **never state more than the listed number**; if X isn't listed, don't invent — leave blank if optional, block if required.
 - Consent / GDPR checkboxes → tick the **required** ones (needed to apply); leave optional marketing consents unticked.
-- Employer message / "introduce yourself" → compose **1–2 sentences** (§4), even though it's optional. If nothing is labeled as a message to the employer, a generic "Informacje dodatkowe" / "Additional information" field sitting outside any referral or GDPR sub-section is a reasonable stand-in — use it rather than leaving it blank.
-- Cover letter / "why us" / open questions → if **required**, compose (§4). If optional, **skip**.
+- Employer message / cover letter / "why us" / open questions → **required only**: compose 1–2 sentences (§4). Optional → blank, always; never go looking for a field to put a note in.
 
 ## 7. The only "stop → manual" triggers
 Stop, log to `todo_manual.md`, move on **only** for:

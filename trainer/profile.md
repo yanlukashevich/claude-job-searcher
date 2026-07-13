@@ -10,6 +10,8 @@ When this file and the playbook disagree on a fact, this file wins.
 - Phone: **793233209**  (E.164: **+48793233209**)
 - Location: Toruń, ul. Św. Józefa, 87-100, woj. kujawsko-pomorskie, Polska
 - Willing to relocate: **yes**
+- Date of birth: **15.07.2000**
+- Citizenship / obywatelstwo: **białoruskie / Belarusian** · residence: **permanent residence in Poland** (karta stałego pobytu — see Work authorization)
 
 ## Links
 - GitHub: https://github.com/yanlukashevich
@@ -26,8 +28,11 @@ When this file and the playbook disagree on a fact, this file wins.
 - Work mode: najlepiej zdalne, ale hybrydowe lub stacjonarne też OK / *remote preferred, hybrid or on-site also fine*
 
 ## Employment
-- Contract types: **umowa o pracę** or **B2B** (no preference)
-- Expected salary: **10000 PLN / month, gross** — negotiable (a starting point)
+- Contract types: preferenced **umowa o pracę** but can be **B2B**
+- Expected salary (UoP): **10000 PLN / month, gross** · range Od–Do: **8000 – 10000 PLN gross**
+- Expected salary (B2B): **10000 PLN / month, gross** · range Od–Do: **8000 – 10000 PLN gross**
+  - **The same band on both bases, and both are gross** — that is deliberate, not a copy-paste.
+    A form asking B2B *netto* gets this figure unchanged: never convert or adjust it (§3.2).
 
 ## Languages
 - Polish — **C2**
@@ -85,6 +90,8 @@ public-institution security audit.
 | JavaScript | 3 | Node.js / NestJS | 1 |
 
 ## Experience
+- Total years of commercial experience: **3**  (the single number forms ask for; do not re-derive it from the entries below)
+
 ### DrukMruk — Founder & Lead Developer · 02.2026 – present · drukmruk.pl
 - Od zera do produkcji w 3 miesiące, solo — komercyjny, rozproszony system druku samoobsługowego dla środowiska akademickiego: web app (React 19 / TypeScript), backend chmurowy (ASP.NET Core 8, Azure) i sieć fizycznych kiosków IoT (Raspberry Pi).
 - Zdany miesięczny audyt bezpieczeństwa instytucji publicznej (UCI UMK) — obrona architektury i hardening (izolacja sieciowa warstw, ochrona danych, centralne logowanie i alertowanie incydentów).
@@ -106,6 +113,7 @@ https://github.com/yanlukashevich/Respirator-simulator
 
 ## Education
 - Informatyka Stosowana, studia inżynierskie (inż.) — Uniwersytet Mikołaja Kopernika w Toruniu, 2022 – 2026
+  - End (MM.YYYY): **07.2026** · start (MM.YYYY): *(brak — do uzupełnienia)*  (wizard ATS require month + year)
 
 ## Certificates
 - Cisco CCNA

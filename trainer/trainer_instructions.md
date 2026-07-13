@@ -29,8 +29,7 @@ tried, and which offers were already used.
 
 **1. Pick 2–3 offers** from `offers_pool.json` (`status: "pending"`). Rotate: prefer
 offers not used in the previous iteration — overfitting the prompt to one form is the main
-failure mode of this loop. Exception: when the last edit targeted a specific failure, rerun
-**that one offer** plus one fresh offer, so you see both the fix and its generality.
+failure mode of this loop.
 Review mode never submits, so reusing offers is harmless.
 
 **2. Run one fresh applier subagent per offer — strictly sequentially.** They share Yan's
@@ -45,8 +44,8 @@ next run.
 **3. Score each report** on the rubric (0/1/2 each, recorded in the changelog):
 - **Correctness** — no invented hard facts; right CV variant + language; block rules
   honored; free-text follows the note rules.
-- **Completeness** — every required field filled; optional fields left blank except the
-  employer message.
+- **Completeness** — every required field filled; every optional field left blank, free-text
+  included (a volunteered message is a Completeness *miss*, not a bonus).
 - **Robustness** — no repeated-failure loops; stalls diagnosed and recovered (stale refs,
   silent no-op clicks, custom dropdowns) without flailing.
 - **Efficiency** — no redundant page reads or screenshots; no detours the playbook should
@@ -65,8 +64,16 @@ hard way):
 - A bare prohibition names a symptom; state the reason in one clause, then the rule.
 - A new rule earns its place only after the same problem appears **twice** (any two runs,
   any iteration), unless it is obviously form-general. One bad run is an anecdote.
-- Anything true of one ATS vendor and not of forms in general does **not** go in the
-  candidate — record it in the changelog as a *proposed `ats_quirks.md` addition* for Yan.
+- Anything true of one form and not of forms in general does **not** go in the candidate.
+  Route it to the changelog as a proposal for Yan instead — you never edit those files:
+  - a **widely-used ATS product** (eRecruiter, Workday, Avature, Greenhouse, tomHRM …), or a
+    trap any vendor can spring → *proposed `ats_quirks.md` addition*. One employer's homemade
+    career page earns nothing: appliers pay for that file on every external offer, so a recipe
+    used by a single employer costs more than it returns. If its lesson generalizes, propose it
+    as a general trap, unnamed.
+  - a **missing hard fact** that blocked a run (`missing-fact`, §7.3 of the candidate) →
+    *proposed `profile.md` addition*: the field, the form that demanded it, the shape of the
+    value (units, format), and whether it will recur. Never guess the value — only Yan knows it.
 - **The prompt must not grow.** Pay for every addition with a cut elsewhere; the target
   across iterations is net shrink. Record the candidate's word count in every entry.
 
