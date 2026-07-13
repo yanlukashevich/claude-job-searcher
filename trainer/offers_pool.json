@@ -1,0 +1,834 @@
+[
+    {
+        "url":  "https://justjoin.it/job-offer/just-join-it-fullstack-software-engineer-remote--gdansk-net-0bbc17e3",
+        "title":  "Fullstack Software Engineer (remote)",
+        "company":  "Just Join IT",
+        "location":  "Gdańsk / Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/anitech-solutions-backend-developer-krakow-net",
+        "title":  "Backend Developer",
+        "company":  "Anitech Solutions",
+        "location":  "Kraków / Katowice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/skywise-junior-net-backend-developer-gdansk-net",
+        "title":  "Junior .NET Backend Developer",
+        "company":  "Skywise",
+        "location":  "Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/link-group-c-net-developer-warszawa-net",
+        "title":  "C# / .NET Developer",
+        "company":  "Link Group",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/skywise-intermediate-net-backend-developer-gdansk-net",
+        "title":  "Intermediate .NET Backend Developer",
+        "company":  "Skywise",
+        "location":  "Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/law-stream-programista-aplikacji-mobilnych-net-maui-xamarin-forms-wroclaw-net-b2d906ff",
+        "title":  "Programista/Programistka aplikacji mobilnych. Net Maui/ Xamarin.Forms",
+        "company":  "Law Stream",
+        "location":  "Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/netwise-spolka-akcyjna-microsoft-dynamics-365-crm-developer-warszawa-net-a4ede3e6",
+        "title":  "Microsoft Dynamics 365 CRM Developer",
+        "company":  "NETWISE SPÓŁKA AKCYJNA",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/rits-sharepoint-developer-warszawa-net",
+        "title":  "SharePoint Developer",
+        "company":  "RITS",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/the-software-house--net-developer-gliwce-net",
+        "title":  ".NET Developer",
+        "company":  "The Software House",
+        "location":  "Gliwce",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/cosinus--net-developer-lodz-net-269d376d",
+        "title":  ".NET Developer",
+        "company":  "Cosinus",
+        "location":  "Łódź",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/andersen-backend-developer-net--poland-net",
+        "title":  "Backend Developer (.NET)",
+        "company":  "Andersen",
+        "location":  "Poland / Hungary / Lithuania / Bosnia and herzegovina / Switzerland / Albania / Novi Sad / Bosnia and Herzegovina / Chișinău",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-murex-business-analyst--london-net-2b3b4ea7",
+        "title":  "Murex Business Analyst ",
+        "company":  "emagine Polska",
+        "location":  "London",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-c-developer-expertise-with-commodities-and-murex--london-net-663f62ed",
+        "title":  "C# Developer (Expertise with Commodities and Murex)",
+        "company":  "emagine Polska",
+        "location":  "London",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/7n-fullstack-developer-net-angular--warszawa-net-f4686d57",
+        "title":  "Fullstack Developer (.Net/Angular)",
+        "company":  "7N",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/sii--net-developer-f-m-x--lodz-net",
+        "title":  ".NET Developer (f/m/x)",
+        "company":  "Sii",
+        "location":  "Łódź",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/vercom-s-a--ai-first-backend-software-engineer-poznan-net-3ee02de7",
+        "title":  "AI-First Backend Software Engineer",
+        "company":  "Vercom S.A.",
+        "location":  "Poznań",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/just-join-it-fullstack-software-engineer-gdansk-net-fe2cbd86",
+        "title":  "Fullstack Software Engineer",
+        "company":  "Just Join IT",
+        "location":  "Gdańsk / Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/accenture-one-identity-manager-consultant-developer-architect-she-he-they--krakow-net",
+        "title":  "One Identity Manager consultant/developer/architect (She/He/They)",
+        "company":  "Accenture",
+        "location":  "Kraków / Wrocław / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/tauron-obsluga-klienta-sp-z-o-o--react-developer-k-m--katowice-net",
+        "title":  "React Developer (k/m)",
+        "company":  "TAURON Obsługa Klienta Sp. z o.o.",
+        "location":  "Katowice / Wrocław / Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/nexio-management-rpa-developer-k-m--poland-remote--net",
+        "title":  "RPA Developer (k/m/n)",
+        "company":  "Nexio Management",
+        "location":  "Poland (Remote) / Wrocław / Kraków / Poznań / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/dcg-senior-system-architect-pega-developer-gdansk-net",
+        "title":  "Senior System Architect PEGA Developer",
+        "company":  "DCG",
+        "location":  "Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/kamsoft-s-a--programista-programistka-net-katowice-net",
+        "title":  "Programista/Programistka .NET",
+        "company":  "KAMSOFT S.A.",
+        "location":  "Katowice / Kraków / Kielce / Częstochowa / Opole",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/shimi-sp-z-o-o--fullstack-developer-m-f-n--krakow-net",
+        "title":  "Fullstack Developer (m/f/n)",
+        "company":  "Shimi Sp. z o.o.",
+        "location":  "Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/pko-bp-finat-programista-net-programistka-net-warszawa-net",
+        "title":  "Programista .NET / Programistka .NET",
+        "company":  "PKO BP Finat",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/omada-poland-junior-developer-warszawa-net",
+        "title":  "Junior Developer",
+        "company":  "Omada Poland",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/andersen-backend-c-net-developer-warszawa-net",
+        "title":  "Backend (C#/.NET) Developer",
+        "company":  "Andersen",
+        "location":  "Warszawa / Kraków / Belgrad / Budapest / Sofia",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/dps-systems-sp-z-o-o--c-developer-warszawa-net",
+        "title":  "C# Developer",
+        "company":  "DPS Systems Sp. z o.o.",
+        "location":  "Warszawa / Poznań / Katowice / Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-fullstack-developer-net-blazor-webassembly--warszawa-net",
+        "title":  "Fullstack Developer (.Net + Blazor WebAssembly)",
+        "company":  "emagine Polska",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/reply-polska-sp-z-o-o--junior-backend-developer-net--katowice-net",
+        "title":  "Junior Backend Developer (.NET)",
+        "company":  "Reply Polska Sp. z o. o.",
+        "location":  "Katowice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ergo-technology-services-software-engineer-one-identity-f-m-d-warszawa-net-23b980f5",
+        "title":  "Software Engineer (One Identity) | f/m/d",
+        "company":  "ERGO Technology \u0026 Services",
+        "location":  "Warszawa / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/postdata-programista-programistka-net-gdansk-net",
+        "title":  "Programista/Programistka .NET",
+        "company":  "POSTDATA",
+        "location":  "Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/upvanta-sp-z-o-o--fullstack-developer-node-js-net-azure-terraform--wroclaw-net",
+        "title":  "Fullstack Developer (Node.js / .NET / Azure / Terraform)",
+        "company":  "Upvanta sp. z o.o.",
+        "location":  "Wrocław / Warszawa / Kraków / Poznań / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/astek-polska-programista-programistka-ferryt-mid-senior--warszawa-mazowieckie--net",
+        "title":  "Programista / Programistka Ferryt (Mid / Senior)",
+        "company":  "ASTEK Polska",
+        "location":  "Warszawa (Mazowieckie)",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/astek-polska-programista-fullstack-programistka-fullstack-net-angular--warszawa-mazowieckie--net-f6b5e60e",
+        "title":  "Programista Fullstack / Programistka Fullstack (.NET/Angular)",
+        "company":  "ASTEK Polska",
+        "location":  "Warszawa (Mazowieckie)",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska--net-developer-london-net",
+        "title":  ".NET Developer",
+        "company":  "emagine Polska",
+        "location":  "London / Lisbon / Brussels",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-tia-developer-operations-specialist-lisbon-net",
+        "title":  "TIA Developer \u0026 Operations Specialist",
+        "company":  "emagine Polska",
+        "location":  "Lisbon",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/cyclad-fullstack-developer-net-angular--warszawa-net-5e5dfdff",
+        "title":  "Fullstack Developer (.NET+Angular)",
+        "company":  "Cyclad",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/future-processing-medium-net-developer-gliwice-net",
+        "title":  "Medium .NET Developer",
+        "company":  "Future Processing",
+        "location":  "Gliwice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/simcorp-senior-software-engineer---transactions-warszawa-net",
+        "title":  "Senior Software Engineer - Transactions",
+        "company":  "SimCorp",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/dcv-technologies--net-developer-wrocalw-wroclaw-net",
+        "title":  ".NET Developer | Wrocław",
+        "company":  "DCV Technologies",
+        "location":  "Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/shimi-sp-z-o-o--cax-support-engineer-c-net-angular-m-f-n--hague-net",
+        "title":  "CAX Support Engineer (C#/.NET/Angular) (m/f/n)",
+        "company":  "Shimi Sp. z o.o.",
+        "location":  "Hague",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/clear-site-sp-z-o-o--specjalista-specjalistka-ds-wdrozen-i-utrzymania-wordpress-wroclaw-net",
+        "title":  "Specjalista/ Specjalistka ds. wdrożeń i utrzymania WordPress",
+        "company":  "Clear Site Sp. z o. o.",
+        "location":  "Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/itds-senior-fullstack-engineer---net-and-react-development-krakow-net-36f057d5",
+        "title":  "Senior Fullstack Engineer – .NET and React Development",
+        "company":  "ITDS",
+        "location":  "Krakow",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/itis-fullstack-developer-net-angular--warszawa-net",
+        "title":  "FullStack Developer (.Net + Angular)",
+        "company":  "ITIS",
+        "location":  "Warszawa / Kraków / Wrocław / Gdańsk / Poznań",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/cyclad-tech-lead-angular-net--wroclaw-net",
+        "title":  "Tech Lead (Angular \u0026 .NET)",
+        "company":  "Cyclad",
+        "location":  "Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/bms-sp-z-o-o---net-software-developer-warszawa-net-b03479a1",
+        "title":  ".NET Software Developer",
+        "company":  "BMS sp. z o.o.",
+        "location":  "Warszawa / Łódź / Lublin / Kielce / Białystok",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/devsdata-llc-software-engineer-net-typescript-python--warszawa-net",
+        "title":  "Software Engineer (.NET/Typescript/Python)",
+        "company":  "DevsData LLC",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/upvanta-sp-z-o-o---net-developer-mid--poznan-net",
+        "title":  ".Net Developer (Mid)",
+        "company":  "Upvanta sp. z o.o.",
+        "location":  "Poznań / Wrocław / Warszawa / Kraków / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/simcorp-software-engineer-in-accounting-warszawa-net",
+        "title":  "Software Engineer in Accounting",
+        "company":  "SimCorp",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/techtree-software-developer-warszawa-net",
+        "title":  "Software Developer",
+        "company":  "TechTree",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ness-solution-fullstack-net-developer-with-microfrontends--warszawa-net",
+        "title":  "Fullstack .NET Developer (with MicroFrontends)",
+        "company":  "Ness Solution",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/itlt--net-developer-blazor--lublin-net",
+        "title":  ".NET Developer (Blazor)",
+        "company":  "ITLT",
+        "location":  "Lublin",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/gamefound-sp-z-o-o---net-developer-wroclaw-net-9fe0e347",
+        "title":  ".NET Developer",
+        "company":  "Gamefound Sp. z o.o.",
+        "location":  "Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/randlab--net-developer-warszawa-net-a0afa203",
+        "title":  ".NET Developer",
+        "company":  "Randlab",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/housecall-pro-software-engineer-backend--warszawa-net",
+        "title":  "Software Engineer (Backend)",
+        "company":  "Housecall Pro",
+        "location":  "Warszawa / Kraków / Gdańsk / Wrocław / Katowice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/link-group-back-end-engineer-net-aws-kubernetes--warszawa-net",
+        "title":  "Back-End Engineer (.NET | AWS | Kubernetes)",
+        "company":  "Link Group",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ochk-full-stack-developer-warszawa-net",
+        "title":  "Full Stack Developer",
+        "company":  "OChK",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/sellintegro-fullstack-net-developer-wroclaw-net",
+        "title":  "Fullstack .NET Developer",
+        "company":  "SellIntegro",
+        "location":  "Wrocław / Warszawa / Kraków / Poznań / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/speedapp-programista-net-warszawa-net",
+        "title":  "Programista .NET",
+        "company":  "speedapp",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/britenet-fullstack-sharepoint-developer-eu-public--warszawa-net",
+        "title":  "Fullstack Sharepoint Developer (EU Public)",
+        "company":  "Britenet",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/nexio-management--net-c-developer-k-m-n--warszawa-net",
+        "title":  ".NET/C# Developer (k/m/n)",
+        "company":  "Nexio Management",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/skywise-software-developer-intermediate-backend--gdansk-net",
+        "title":  "Software Developer (Intermediate Backend)",
+        "company":  "Skywise",
+        "location":  "Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/domdata-ferryt-low-code-developer-poznan-net",
+        "title":  "Ferryt Low-Code Developer",
+        "company":  "DomData",
+        "location":  "Poznań / Warszawa / Gdańsk / Kraków / Wrocław / Katowice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/skywise-software-developer-junior-backend--gdansk-net",
+        "title":  "Software Developer (Junior Backend)",
+        "company":  "Skywise",
+        "location":  "Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/dtiq-poland-sp-z-o-o--junior-net-developer-gliwice-net-13994b15",
+        "title":  "Junior .NET Developer",
+        "company":  "DTiQ Poland SP. z o.o.",
+        "location":  "Gliwice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/mw-consulting-full-stack-developer-net-azure-python--wroclaw-net-37d99aad",
+        "title":  "Full-Stack Developer (.NET/Azure/Python)",
+        "company":  "MW Consulting",
+        "location":  "Wrocław / Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/agencja-wywiadu-programista-c-full-stack-warszawa-net-8224778d",
+        "title":  "Programista C# Full Stack",
+        "company":  "Agencja Wywiadu",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/technipfmc-software-developer-c--krakow-net",
+        "title":  "Software Developer (C++)",
+        "company":  "TechnipFMC",
+        "location":  "Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/strzelczyk-spolka-z-ograniczona-odpowiedzialnoscia--net-developer-warszawa-net",
+        "title":  ".NET Developer",
+        "company":  "STRZELCZYK SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/motorola-solutions-junior-c-engineer-krakow-net",
+        "title":  "Junior C# Engineer",
+        "company":  "Motorola Solutions",
+        "location":  "Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/b2bnetwork-software-developer-krakow-net-2f1f2ee4",
+        "title":  "Software Developer",
+        "company":  "B2Bnetwork",
+        "location":  "Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/people-more-sp-z-o-o-sp-k--fullstack-developer-c-net-javascript--krakow-net",
+        "title":  "Fullstack Developer (C#/ .net / Javascript)",
+        "company":  "PEOPLE MORE sp. z o.o. sp.k.",
+        "location":  "Kraków / Tranów / Jaworzno",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/tss-programista-c-net-warszawa-net",
+        "title":  "Programista C# /  .NET",
+        "company":  "TSS",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/klient-just-join-it--net-developer-katowice-net-e97c36e6",
+        "title":  ".NET Developer",
+        "company":  "Klient justjoin.it",
+        "location":  "Katowice / Kraków / Gliwice",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/autofixer-com-sp-z-o-o--regular-net-developer-warszawa-net",
+        "title":  "Regular .Net Developer",
+        "company":  "AUTOFIXER.COM sp. z o.o.",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/kamsoft-s-a--warsztaty-rekrutacyjne-mlodszy-programista-mlodsza-programistka-c--katowice-net",
+        "title":  "Warsztaty rekrutacyjne: Młodszy Programista/Młodsza Programistka C# ",
+        "company":  "KAMSOFT S.A.",
+        "location":  "Katowice / Kraków / Gliwice / Chorzów / Tychy / Bytom / Zabrze / Sosnowiec / Mysłowice / Jaworzno",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/citigroup-software-engineer-with-russian-warsaw-net",
+        "title":  "Software Engineer with Russian",
+        "company":  "Citigroup",
+        "location":  "Warsaw",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/andersen-backend-developer-net-in-the-eu-sofia-net-c6346bc4",
+        "title":  "Backend Developer (.NET) in the EU",
+        "company":  "Andersen",
+        "location":  "Sofia / Zagreb / Bratislava / Prague / Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ness-solution-fullstack-developer-net-blazor-warszawa-net",
+        "title":  "Fullstack Developer | .NET + Blazor",
+        "company":  "Ness Solution",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/andersen-full-stack-net-angular-developer-eu--warszawa-net",
+        "title":  "Full Stack (.NET+Angular) Developer (EU)",
+        "company":  "Andersen",
+        "location":  "Warszawa / Kraków / Romania / Bulgaria / Portugal",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/cyclad-software-developer-mendix--warszawa-net",
+        "title":  "Software Developer (Mendix)",
+        "company":  "Cyclad",
+        "location":  "Warszawa / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/impakt-s-a--junior-developer-erp-f-m--mosina-net",
+        "title":  "Junior Developer ERP (f/m)",
+        "company":  "Impakt S.A.",
+        "location":  "Mosina",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/devapo--net-developer-warszawa-net",
+        "title":  ".NET Developer",
+        "company":  "Devapo",
+        "location":  "Warszawa / Gdańsk / Wrocław / krakw / Poznań",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/inwedo--net-developer-lodz-net-bebc8de6",
+        "title":  ".NET Developer",
+        "company":  "Inwedo",
+        "location":  "Łódź",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/job-finder--net-developer-c--warszawa-net",
+        "title":  ".NET developer C#",
+        "company":  "Job Finder",
+        "location":  "Warszawa / Łódź / Gdańsk / Poznań / Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-mulesoft-developer-bengaluru-net",
+        "title":  "MuleSoft Developer",
+        "company":  "emagine Polska",
+        "location":  "Bengaluru",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/medicover--net-developer-warszawa-net",
+        "title":  ".NET Developer",
+        "company":  "Medicover",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/codetwo---hrejterzy-developer-c-lub-asp-net-jelenia-gora-net-9eb320c7",
+        "title":  "Developer C# lub ASP.NET",
+        "company":  "CodeTwo - HRejterzy",
+        "location":  "Jelenia Góra / Wrocław",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ness-solution--net-developer-frontend--warszawa-net",
+        "title":  ".NET Developer  (+ Frontend)",
+        "company":  "Ness Solution",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ergo-technology-services-software-engineer-net-f-m-d-warszawa-net",
+        "title":  "Software Engineer (.NET)​ | f/m/d",
+        "company":  "ERGO Technology \u0026 Services",
+        "location":  "Warszawa / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/rom-spolka-z-ograniczona-odpowiedzialnoscia-erp-application-specialist-olesnica-net",
+        "title":  "ERP Application Specialist",
+        "company":  "ROM SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+        "location":  "Oleśnica",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/kc-techworks-sp-z-o-o--fullstack-software-developer-krakow-net-4ce89e9b",
+        "title":  "Fullstack Software Developer",
+        "company":  "KC TechWorks Sp. z o.o.",
+        "location":  "Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/btc-software-systems-sp-z-o-o--software-developer-poznan-net",
+        "title":  "Software Developer",
+        "company":  "BTC Software Systems Sp.z o.o.",
+        "location":  "Poznań",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/fabrity-s-a--backend-developer-net-warszawa-net",
+        "title":  "Backend Developer .NET",
+        "company":  "Fabrity S.A.",
+        "location":  "Warszawa / Poznań / Kraków / Gdańsk",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-c-c-developer-warsaw-net",
+        "title":  "C++ / C# Developer",
+        "company":  "emagine Polska",
+        "location":  "Warsaw",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-outsystems-developer-mid-senior--warsaw-net-60604831",
+        "title":  "Outsystems Developer (Mid / Senior)",
+        "company":  "emagine Polska",
+        "location":  "Warsaw",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/emagine-polska-fullstack-developer-net-angular--warsaw-net-60b00473",
+        "title":  "Fullstack Developer (.NET, Angular)",
+        "company":  "emagine Polska",
+        "location":  "Warsaw",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/b2bnetwork--net-developer-f-m--warszawa-net",
+        "title":  ".NET Developer (F/M)",
+        "company":  "B2Bnetwork",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/codetwo---hrejterzy-junior-developer-asp-net-jelenia-gora-net",
+        "title":  "Junior Developer ASP.NET",
+        "company":  "CodeTwo - HRejterzy",
+        "location":  "Jelenia Góra",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/lux-med-sp-z-o-o--programista-programistka-net-warszawa-net",
+        "title":  "Programista/Programistka .NET",
+        "company":  "LUX MED Sp. z o. o.",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/ness-solution-software-developer-engineer-net-blazor--warszawa-net",
+        "title":  "Software Developer / Engineer (.NET + Blazor)",
+        "company":  "Ness Solution",
+        "location":  "Warszawa",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/margo-senior-net-developer-with-fintech-lodz-net",
+        "title":  "Senior .NET Developer with Fintech",
+        "company":  "Margo",
+        "location":  "Łódź",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/butterflai-spolka-z-ograniczona-odpowiedzialnoscia--net-azure-engineer-rybnik-net",
+        "title":  ".NET Azure Engineer",
+        "company":  "BUTTERFLAI SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+        "location":  "Rybnik",
+        "stack":  "dotnet",
+        "status":  "pending"
+    },
+    {
+        "url":  "https://justjoin.it/job-offer/impact-commerce--net-developer-krakow-net-17456a33",
+        "title":  ".NET Developer",
+        "company":  "IMPACT Commerce",
+        "location":  "Kraków",
+        "stack":  "dotnet",
+        "status":  "pending"
+    }
+]
