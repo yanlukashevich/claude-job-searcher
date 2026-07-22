@@ -1,0 +1,35 @@
+/* Shared cockpit styling: palette + primitives used by every page.
+   Each page links this first, then adds its own page-specific <style> for unique bits.
+   --good is the dark green for solid pill/button backgrounds (white text on top);
+   --good-2 is the brighter green for green TEXT and accents (better contrast on dark bg). */
+:root{
+  --bg:#0f1115; --fg:#e6e6e6; --dim:#9aa0aa; --line:#262a33; --card:#161a21;
+  --accent:#4a9eff; --warn:#e0a44a; --good:#1f7a3f; --good-2:#3fae5f; --bad:#e06a6a;
+  --b1:#7a1f1f; --b2:#8a3b1f; --b3:#3a3f49; --b4:#7a6a1f; --b5:#3f6a2f; --b6:#1f7a3f;
+}
+@media (prefers-color-scheme:light){
+  :root{--bg:#f6f7f9;--fg:#1b1e24;--dim:#5c636e;--line:#dde1e7;--card:#fff;
+    --b1:#e7b3b3;--b2:#eac6ad;--b3:#d8dbe0;--b4:#e6dca8;--b5:#c3e0b3;--b6:#a8e0bd;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+
+/* stat tiles */
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 14px;min-width:104px}
+.tile .k{font-size:11px;color:var(--dim)}
+.tile .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px}
+.tile .s{font-size:11px;color:var(--dim);margin-top:1px;min-height:14px}
+.tile.hl .v,.tile.rev .v{color:var(--accent)}
+.tile.warnv .v{color:var(--warn)}
+.tile.newv .v,.tile.new .v,.tile.ok .v{color:var(--good-2)}
+.tile.rm .v,.tile.bad .v{color:var(--bad)}
+
+/* generic bits */
+.badge{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+.empty{color:var(--dim);padding:24px 2px}
+.pos{color:var(--good-2)} .neg{color:var(--bad)}
+.back{color:var(--accent);text-decoration:none;font-size:12px;margin-left:12px}
+.back:hover{text-decoration:underline}
+.status{color:var(--dim);font-size:13px} .status.ok{color:var(--good-2)} .status.err{color:var(--bad)}

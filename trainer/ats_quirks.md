@@ -45,6 +45,11 @@ be duds; the **top sticky "Apply" button** is the one that opens the ATS tab.
 
 The form is Polish → answer in Polish, upload the PL CV.
 
+**Instances vary enormously by employer template.** Several measured ones were a minimal
+name/email/phone/CV form with real `<select>`s, no cookie wall, no language section and no
+message field. Read the form first: every step below is **handle if present**, not *expect*, and
+a missing step is normal, not a sign you are on the wrong page.
+
 1. **Cookie wall.** Dismiss OneTrust with **"Odrzuć wszystkie"** (privacy-preserving).
 2. **Every dropdown is a custom React listbox, not a `<select>`** — Kraj, forma współpracy,
    oczekiwania finansowe, język, poziom. `form_input` does nothing on them. Open by `ref`,

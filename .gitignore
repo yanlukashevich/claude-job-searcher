@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.pyc
+
+# Backups (scripts write .bak next to their output)
+*.bak
+
+# Generated review page (finder/prototype/browse.py regenerates it)
+finder/prototype/offers.html

@@ -16,7 +16,7 @@ When this file and the playbook disagree on a fact, this file wins.
 ## Links
 - GitHub: https://github.com/yanlukashevich
 - Portfolio: https://drukmruk.pl
-- LinkedIn: *(brak / do uzupełnienia)*
+- LinkedIn: https://www.linkedin.com/in/yan-lukashevich-536977364/
 
 ## Work authorization
 - Status: **permanent residence** (karta stałego pobytu) · needs sponsorship: **no** · EU work rights: **yes**
@@ -28,11 +28,16 @@ When this file and the playbook disagree on a fact, this file wins.
 - Work mode: najlepiej zdalne, ale hybrydowe lub stacjonarne też OK / *remote preferred, hybrid or on-site also fine*
 
 ## Employment
-- Contract types: preferenced **umowa o pracę** but can be **B2B**
+- Contract types: preferred **umowa o pracę** but can be **B2B**
 - Expected salary (UoP): **10000 PLN / month, gross** · range Od–Do: **8000 – 10000 PLN gross**
 - Expected salary (B2B): **10000 PLN / month, gross** · range Od–Do: **8000 – 10000 PLN gross**
   - **The same band on both bases, and both are gross** — that is deliberate, not a copy-paste.
-    A form asking B2B *netto* gets this figure unchanged: never convert or adjust it (§3.2).
+    Both are **monthly**. A form asking B2B *netto per month* gets this figure unchanged:
+    never convert or adjust it (§3 rule 2).
+- Expected hourly rate (B2B, netto, zł/h): *(brak — do uzupełnienia)*
+  - An hourly field or band (e.g. „Stawka NETTO za godzinę pracy (B2B)", 100–120 / 120–140 zł/h)
+    asks for **this** fact — it is not the monthly figure divided by anything. While the value
+    above is blank, a required hourly field is a **`missing-fact` block** (§7.3): never derive it.
 
 ## Languages
 - Polish — **C2**
@@ -67,7 +72,7 @@ months, a startup-competition win (Copernicus Startup Stars 2026), and a passed
 public-institution security audit.
 
 ## Tech stack
-- **Backend:** C#, ASP.NET Core 8, Entity Framework Core, REST API, WebSocket · Node.js, NestJS · Python (FastAPI)
+- **Backend:** C#, ASP.NET Core 8, Entity Framework Core, REST API, WebSocket · Node.js, next.js, NestJS · Python (FastAPI)
 - **Frontend:** React 19, TypeScript, JavaScript, Vite, Tailwind CSS, i18n, accessibility (a11y)
 - **Cloud / DevOps:** Microsoft Azure (App Service, SQL Database, Service Bus, Blob Storage, Key Vault, Virtual Network, Managed Identity, Application Insights), Azure CLI, GitHub Actions (CI/CD, OIDC), Docker, Docker Compose
 - **Linux / networking:** bash automation, HPC cluster, PBS, conda, network admin (AP, DHCP, DNS, NAT, SSH), Cisco CCNA

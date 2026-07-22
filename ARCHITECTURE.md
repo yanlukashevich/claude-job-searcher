@@ -3,7 +3,8 @@
 A tool that applies to jobs on your behalf using your prepared CV, by driving your
 real Chrome browser. Starts with **justjoin.it**, later extends to **pracuj.pl**.
 
-Status: **planning / pre-build**. This document is the source of truth for the design.
+Status: **Phase 1 running** — the Applier drives real applications in review mode and the
+Finder (`finder/`) is built. This document is the source of truth for the design.
 
 ---
 
@@ -34,15 +35,18 @@ The user is **logged into justjoin.it** in this Chrome profile.
 The system is split into two independent tools so the offer-collection step and the
 apply step can be run and reviewed separately.
 
-### 3.1 Finder
-- **Input:** search criteria (stack, seniority, remote, city, min salary).
-- **Job:** browse justjoin.it and collect matching offers. Prefer justjoin.it's JSON
-  API if it exists (robust) over DOM scraping (fragile) — *to be verified during recon*.
-- **Dedup:** skip offers already present in `applications_log.jsonl`.
-- **Output:** `offers_queue.jsonl` — a queue the user can review/trim before applying.
+### 3.1 Finder — BUILT (`finder/`, Python, see `finder/README.md`)
+- **Input:** search criteria (stack, seniority) baked into `harvest.py`'s API query.
+- **Job:** pull justjoin.it's JSON listings API (confirmed to exist; recon paid off) into an
+  append-only offer DB, score every offer with a keyword classifier, and serve a local
+  **cockpit** (`app.py`) where the user reviews and picks.
+- **Dedup:** the cockpit joins `applications_log.jsonl` (bot) and `manual_applied.json` (you)
+  onto each offer as a visible **applied** status, so already-applied offers are skipped by
+  the human at pick time — no automatic set-filter (that was `legacy/build_worklist.ps1`).
+- **Output:** `src/worklist.json` — written straight from the cockpit's picks.
 
 ### 3.2 Applier
-- **Input:** `offers_queue.jsonl` + `profile.md` + `applier_instructions.md` + CV file(s).
+- **Input:** `worklist.json` + `profile.md` + `applier_instructions.md` + CV file(s).
 - **Job:** fully autonomous across **all** apply variants:
   - internal justjoin.it apply modal,
   - external ATS (Greenhouse / Lever / Workable / SmartRecruiters / …),
@@ -60,7 +64,8 @@ apply step can be run and reviewed separately.
 | `applier_instructions.md` | **The behavior** — how Claude fills forms and composes answers. |
 | `cv/` | The CV file(s), possibly variants per stack. |
 | `applications_log.jsonl` | Audit trail of every outcome; also the anti-double-apply record. |
-| `offers_queue.jsonl` | Finder output; applier input. |
+| `finder/data/offers_db.jsonl` | Every offer ever harvested; the finder's source of truth. |
+| `worklist.json` | Finder cockpit output; applier input (the offers picked for this batch). |
 | `todo_manual.md` | Offers the tool could not finish, with URL + reason, for manual handling. |
 
 ### 4.1 `profile.md` (facts only)
@@ -141,7 +146,7 @@ Components:
 
 | # | Component | Responsibility | Main tools |
 |---|-----------|----------------|-----------|
-| 0 | Worklist builder | dedup, `-Limit`, `-DailyCap`, `status:pending` → `worklist.json` | `build_worklist.ps1` (code, §5C) |
+| 0 | Finder cockpit | harvest, score, join applied-status, human picks → `worklist.json` | `finder/` (Python, §5C) |
 | 1 | Orchestrator | read `worklist.json`, spawn one subagent per offer, pace, verify logs | Cowork parent agent (§5C) |
 | 2 | Navigator | open offer, click Apply, follow redirects/new tabs | `navigate`, `tabs_*`, `find` |
 | 3 | Apply-type detector | classify page into one of 5 types | `get_page_text`, `find` |
@@ -240,16 +245,17 @@ independent."
 **Where it runs changed, the model did not.** The applier must run under **Cowork** (the
 desktop app's local agent mode), because only Cowork's `claude-in-chrome` server can attach
 a CV — it reads the file host-side and sends the extension base64 bytes, while the standalone
-CLI forwards raw paths that the extension now rejects (`CLAUDE_DESKTOP_AND_COWORK.md` §3).
+CLI forwards raw paths that the extension now rejects (measured 2026-07: same `file_upload`
+tool name, different implementation — the CLI's forwards the path, Cowork's reads the bytes).
 
 Cowork is one long-lived session, which naively would have destroyed the per-offer isolation
 above. It does not, because **Cowork can spawn subagents** (verified 2026-07-09: subagents
 spawn, and `file_upload` works inside them). So the model survives intact:
 
 ```
-build_worklist.ps1                      CODE — deterministic, zero tokens
-  offers_queue.json (root) + src/applications_log.jsonl
-  → status:pending + dedup + -Limit + -DailyCap
+finder/ cockpit                         CODE — deterministic, zero agent tokens
+  finder/data/offers_db.jsonl + src/applications_log.jsonl (joined for applied-status)
+  → score + human picks the unapplied ones
   → src/worklist.json
 
 Cowork parent agent = Orchestrator      PROSE — src/orchestrator_instructions.md
@@ -263,17 +269,17 @@ Cowork parent agent = Orchestrator      PROSE — src/orchestrator_instructions.
       verify the log line landed; pause 5–10 s
 ```
 
-This is **strictly better than the old `run_applier.ps1` loop**: same isolation, plus a
-working CV upload.
+This is **strictly better than the old CLI `run_applier.ps1` loop** (now removed): same
+isolation, plus a working CV upload.
 
 ### The mount boundary (§5D)
 Cowork mounts **exactly one folder** and cannot read or write above it (measured 2026-07-10: a
 session connected to a subfolder could not see its parent, and no `CLAUDE.md` was loaded). The
 runtime files therefore live in **`src/`**, which is the folder the user connects; the design
-docs, `build_worklist.ps1` and `offers_queue.json` stay in the root, outside the agent's
+docs and the whole `finder/` (its offer DB included) stay in the root, outside the agent's
 filesystem.
 
-This converts three prompt rules into geometry. "Do not read `offers_queue.json`" and the
+This converts three prompt rules into geometry. "Do not read the offer DB" and the
 CLAUDE.md context tax both disappear — the files are simply unreachable. What geometry cannot
 express is `applications_log.jsonl`: it is an output, so it lives inside the mount, and the
 orchestrator must read its last line to verify each outcome. Forbidden for dedup, required for
@@ -286,7 +292,7 @@ cannot. Hence:
 
 | Concern | Lives in | Why |
 |---|---|---|
-| dedup, `-Limit`, `-DailyCap`, `status:pending` | `build_worklist.ps1` | deterministic, exact, free |
+| harvest, scoring, applied-status, worklist write | `finder/` (Python) | deterministic, exact, free |
 | loop, subagent spawning, pacing, log verification | `orchestrator_instructions.md` | needs agent tools |
 | form filling, free-text, blockers | `applier_instructions.md` | needs reasoning |
 | facts | `profile.md` | unchanged by runtime |
@@ -297,48 +303,52 @@ cannot. Hence:
    silently discarded. Logs must be written with the **file tools**, which always land. Stated
    in `orchestrator_instructions.md` §4 and `applier_instructions.md` §9 — deliberately phrased
    so it holds either way, so the question never has to be settled.
-2. **`run_applier.ps1` is deprecated.** It launches `claude -p` = the CLI = the broken upload
-   path. Kept only for reference. Running it will silently fail to attach a CV.
+2. **Never drive the applier from the CLI.** Anything launching `claude -p` (the old
+   `run_applier.ps1`, now removed) hits the broken upload path and silently fails to attach a
+   CV. The applier runs only under Cowork.
 
 ### Pacing
 Inter-offer delay is **5–10 s**, not the old 90 s jitter. Each application already takes 2–5
 minutes and varies by form and composed text, so the submission interval is deeply irregular
-before any jitter is added — extra randomness is theatre. The control that actually binds is
-**volume**, enforced deterministically by `-DailyCap` (default 12) in `build_worklist.ps1`.
-That is what watcher #2 in §5B scores. Raise the cap above ~15/day and the longer gaps must
-come back.
+before any jitter is added — extra randomness is theatre.
+
+The control that actually binds is **volume**, which is what watcher #2 in §5B scores. There is
+no automatic daily cap: the finder cockpit writes a worklist of exactly the offers the human
+ticks, and already-applied offers are marked so they aren't re-picked. Volume is therefore
+bounded per *batch*, not per *day*, and pacing across days is a human decision — several
+back-to-back batches put several on the same calendar day. Past ~15/day the 5–10 s gaps should
+come back up.
 
 ---
 
 ## 6. Phases
 
-1. **Phase 1** — Applier on justjoin.it internal-modal + external-ATS handling with the
-   drive-to-success / log-or-block logic, review mode. 
-   Prove the loop end-to-end.
-2. **Phase 2** — Finder (API-based if possible),
-3. **Phase 3** — pracuj.pl support + richer dedup and reporting.
+1. **Phase 1 — running.** Applier on justjoin.it internal-modal + external-ATS handling with
+   the drive-to-success / log-or-block logic, review mode. Loop proven end-to-end.
+2. **Phase 2 — built.** Finder over justjoin.it's JSON listings API (`finder/`).
+3. **Phase 3 — next.** pracuj.pl support + richer dedup and reporting. Auto-submit once trust
+   is proven; the prompt is being hardened separately in `trainer/`.
 
 ---
 
-## 7. Open items (needed before/while building)
+## 7. Open items (resolved during the build — kept as a record)
 
-- **User stack + seniority** (e.g. "junior React/TypeScript, Warszawa, remote OK") — to
-  target recon and the finder.
-- **CV file path(s)** on disk, and whether there are multiple variants.
-- **Tone** for free-text answers: formal/professional vs warm/conversational.
-- **Default answer language**: follow the form's language, or always Polish / always
-  English.
-- **Recon results:** does justjoin.it expose a JSON listings API? What does the internal
-  apply modal contain? What does a typical external redirect look like?
+- **User stack + seniority** — .NET junior/mid; the finder's API query bakes this in.
+- **CV variants** — four stacks under `src/CV_PDF/` (PL + EN each); mapping in
+  `applier_instructions.md`.
+- **Tone / default language** — decided: answer in the form's language, matching its register
+  (`applier_instructions.md` §2).
+- **Recon** — justjoin.it *does* expose a JSON listings API (`docs/JUSTJOIN_API_NOTES.md`);
+  the internal modal and external-ATS flows are handled per `src/applier_instructions.md` and
+  `src/ats_quirks.md`.
 
 ---
 
-## 8. Next step
+## 8. Next steps
 
-Live recon on the logged-in Chrome: open one internal-apply offer and one
-external-redirect offer, inspect their apply flows, and check for the JSON API. This
-turns the plan into concrete build details.
-
-potem do pokrecenia pod wzgledem jakosci z zurzycia tokenow : 
-kazda oferta nowy czat czy kilku ofert w jednym 
-warjant skrenshot loop i text loop 
+- Confirm the applier prompt reaches the `trainer/` "done" bar, then consider flipping
+  `auto`-submit for the cleanest ATS paths.
+- Extend the finder to pracuj.pl (the offer-id hash already ignores the source site, so the
+  same job collapses across boards).
+- Token-quality tuning still open: one chat per offer vs. several per chat; screenshot-loop
+  vs. text-loop cost.

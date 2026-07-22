@@ -11,3 +11,7 @@ Format:
 ```
 
 ---
+
+- [ ] Skywise — Intermediate .NET Backend Developer — https://justjoin.it/job-offer/skywise-intermediate-net-backend-developer-gdansk-net
+      reason: register
+      note: Apply hands off to Airbus Workday ATS (ag.wd3.myworkdayjobs.com); step 1 of 5 is a mandatory "Create Account" (email + password) before any application form. English form → dotnet EN CV.

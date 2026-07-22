@@ -145,8 +145,8 @@ navigate → offer URL
  → per field: required + hard fact → copy from profile.md
               required free-text → compose 1–2 sentences (§4), form language
               anything else optional → LEAVE BLANK (don't be helpful here)
-              required + unknown hard fact → BLOCK (§7.3) and stop filling at once —
-                staged fields don't survive the tab, so finishing the form is waste
+              required + unknown hard fact → BLOCK (§7.3, missing-fact). Auto: stop now.
+                Review: fill the rest for the user, still report it blocked
  → fill (form_input for low-sensitivity; vision for guarded/CAPTCHA pages) + upload CV (§5)
  → blocked? → log todo_manual (§9), STOP
  → review mode: fill, then STOP before final Submit    | auto mode: Submit (vision, paced)
@@ -158,19 +158,19 @@ The warm logged-in session is the main protection against justjoin.it's account-
 detection; don't waste it.
 
 ### Field-mapping
-**Default for every optional field: leave it blank** — free-text fields included (§4). The
-bullets below map each value's *source* when a field must be filled; they never make an
-optional field (salary, links, availability, messages) worth filling.
+**Default for every optional field: leave it blank** — free-text included (§4). The bullets
+below map each value's *source* when a field must be filled; they never make an optional one
+worth filling.
 
 - Name / email / phone → Personal (use E.164 phone when a country code is wanted).
 - LinkedIn / GitHub / portfolio → Links. If LinkedIn is missing and the field is optional, skip it; only a *required* one is a problem.
-- Salary → Employment (monthly, PLN, gross, negotiable). **If the form doesn't specify a period, give the monthly gross amount.** If the field is banded, pick the band containing that figure.
+- Salary → Employment (monthly, PLN, gross). Period-unspecified **or netto-labelled** monthly → give the profile figure **unchanged** (never convert netto↔gross); banded → the band holding it. Only a **per-hour** rate is a missing fact (§7.3).
 - Notice period / availability / remote / relocation → Availability (immediately available; remote preferred but flexible; willing to relocate).
 - Work authorization / "can you legally work in PL?" → Work authorization (permanent residence, no sponsorship, EU work rights = yes).
 - Language level → Languages, via the CEFR mapping in `profile.md` — after reading the form's actual option labels.
 - **"Years of X"** → Years-per-technology table. Present confidently but **never state more than the listed number**; if X isn't listed, don't invent — leave blank if optional, block if required.
 - Consent / GDPR checkboxes → tick the **required** ones (needed to apply); leave optional marketing consents unticked.
-- Employer message / cover letter / "why us" / open questions → **required only**: compose 1–2 sentences (§4). Optional → blank, always; never go looking for a field to put a note in.
+- Employer message / cover letter / "why us" / open questions → **required only**: compose 1–2 sentences (§4).
 
 ## 7. The only "stop → manual" triggers
 Stop, log to `todo_manual.md`, move on **only** for:

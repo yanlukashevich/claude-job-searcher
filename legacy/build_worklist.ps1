@@ -10,11 +10,10 @@
     1. status      - only offers with status 'pending'
     2. dedup       - drop any offer whose URL already appears in applications_log.jsonl
                      (any outcome; the log is the anti-double-apply record, ARCHITECTURE.md 3.1)
-    3. volume      - -Limit caps this run; -DailyCap caps applications per calendar day
+    3. volume      - -Limit caps this run (default 10)
 
-  The daily cap is the only pacing control that matters. Per-offer duration already varies by
-  minutes (different forms, different composed text), so inter-offer jitter is noise on top of
-  noise; sustained volume is what account-abuse detection actually scores (ARCHITECTURE.md 5B).
+  Because dedup already removes everything in the log, consecutive runs walk forward through the
+  queue: each run hands over the *next* -Limit offers, never the ones already applied to.
 
   Output: src\worklist.json, an array the orchestrator consumes verbatim and never re-filters.
 
@@ -24,11 +23,7 @@
   to forbid reading it.
 
 .PARAMETER Limit
-  Max offers to emit for this run (0 = no per-run limit, still subject to -DailyCap).
-
-.PARAMETER DailyCap
-  Max applications per calendar day, counted from src\applications_log.jsonl timestamps.
-  Already-logged offers from today consume this budget. Default 12.
+  Max offers to emit for this run. Default 10. Use 0 for the entire remaining queue.
 
 .PARAMETER OutFile
   Where to write the worklist. Default src\worklist.json.
@@ -37,12 +32,12 @@
   Print the worklist to the console; write nothing.
 
 .EXAMPLE
-  # Careful first run: a single offer
-  .\build_worklist.ps1 -Limit 1
+  # The next 10 unapplied offers
+  .\build_worklist.ps1
 
 .EXAMPLE
-  # Whole queue, bounded by the daily cap
-  .\build_worklist.ps1
+  # Careful run: a single offer
+  .\build_worklist.ps1 -Limit 1
 
 .EXAMPLE
   # See what would be selected, write nothing
@@ -51,9 +46,8 @@
 
 [CmdletBinding()]
 param(
-    [int]    $Limit    = 0,
-    [int]    $DailyCap = 12,
-    [string] $OutFile  = 'src\worklist.json',
+    [int]    $Limit   = 10,
+    [string] $OutFile = 'src\worklist.json',
     [switch] $DryRun
 )
 
@@ -75,28 +69,20 @@ $offers = Get-Content $QueueFile -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($null -eq $offers) { Write-Host 'Queue is empty. Nothing to do.' -ForegroundColor Yellow; return }
 if ($offers -isnot [System.Array]) { $offers = @($offers) }
 
-# --- read the log once: applied URLs + today's volume ------------------------
+# --- read the log once: every URL ever applied to -----------------------------
+# An unparsable line is a hole in the anti-double-apply record, so it is fatal rather than a
+# warning: continuing would silently re-apply to whatever offer that line was hiding.
 $appliedUrls = New-Object System.Collections.Generic.HashSet[string]
-$today       = Get-Date -Format 'yyyy-MM-dd'
-$todayCount  = 0
 
 if (Test-Path $LogFile) {
+    $n = 0
     foreach ($line in Get-Content $LogFile -Encoding UTF8) {
+        $n++
         $t = $line.Trim()
         if ($t.Length -eq 0) { continue }
-        try { $obj = $t | ConvertFrom-Json } catch { Write-Warning "Skipping unparsable log line: $t"; continue }
+        try { $obj = $t | ConvertFrom-Json } catch { throw "applications_log.jsonl line ${n} is not valid JSON. Repair it before running; a line that will not parse is an application this script cannot see, and it would be applied to twice." }
         if ($obj.url) { [void]$appliedUrls.Add([string]$obj.url) }
-        # ISO-8601 local time; the first 10 chars are the calendar day.
-        if ($obj.timestamp -and ([string]$obj.timestamp).Substring(0, 10) -eq $today) { $todayCount++ }
     }
-}
-
-$budget = $DailyCap - $todayCount
-if ($budget -le 0) {
-    Write-Host ""
-    Write-Host "Daily cap reached: $todayCount/$DailyCap applications already logged today ($today)." -ForegroundColor Yellow
-    Write-Host "Nothing to do. Try again tomorrow, or raise -DailyCap deliberately." -ForegroundColor Yellow
-    return
 }
 
 # --- filter: pending, not already applied ------------------------------------
@@ -110,13 +96,10 @@ foreach ($o in $offers) {
     $candidates += $o
 }
 
-# --- apply the volume caps ---------------------------------------------------
-$cap = $budget
-if ($Limit -gt 0 -and $Limit -lt $cap) { $cap = $Limit }
-
+# --- apply the volume cap ----------------------------------------------------
 $worklist = @()
 if ($candidates.Count -gt 0) {
-    $take = [Math]::Min($cap, $candidates.Count)
+    $take = if ($Limit -gt 0) { [Math]::Min($Limit, $candidates.Count) } else { $candidates.Count }
     $worklist = @($candidates[0..($take - 1)])
 }
 
@@ -129,8 +112,8 @@ if ($worklist.Count -eq 0) {
 # --- report ------------------------------------------------------------------
 Write-Host ""
 Write-Host "Worklist - $($worklist.Count) offer(s)" -ForegroundColor Cyan
-Write-Host "  today so far : $todayCount/$DailyCap   (remaining budget: $budget)" -ForegroundColor DarkGray
-Write-Host "  candidates   : $($candidates.Count) pending & unapplied" -ForegroundColor DarkGray
+Write-Host "  already applied : $($appliedUrls.Count) in log" -ForegroundColor DarkGray
+Write-Host "  candidates      : $($candidates.Count) pending & unapplied" -ForegroundColor DarkGray
 Write-Host "--------------------------------------------------------------" -ForegroundColor Cyan
 $n = 0
 foreach ($o in $worklist) {

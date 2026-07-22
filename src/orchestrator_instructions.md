@@ -15,12 +15,13 @@ it, you confirm it logged its outcome, and you move on.
 
 ## 1. `worklist.json` is already correct — do not re-derive it
 
-`build_worklist.ps1` has already filtered, deduped and capped it. That work is deterministic
-and done. Take the offers in order and apply to all of them; don't re-sort or second-guess the
+The finder already filtered it and left out everything already applied to. That selection is
+done. Take the offers in order and apply to all of them; don't re-sort or second-guess the
 count. **Never open `applications_log.jsonl` to re-check for duplicates** — §5 is the only
 reason to open it, and then only its last line.
 
-If `worklist.json` is missing or empty, stop and tell the user to run `.\build_worklist.ps1`.
+If `worklist.json` is missing or empty, stop and tell the user to pick offers in the finder
+cockpit and hit "Write worklist".
 
 ## 2. The loop
 
@@ -98,8 +99,8 @@ Pause **5–10 seconds** between subagents. That is all.
 Longer jitter would be theatre: each application already takes anywhere from two to five
 minutes depending on the form and the free text composed, so the interval between submissions
 is deeply irregular before you add anything. What account-abuse detection actually scores is
-**sustained volume**, and volume is already bounded — in code — by the daily cap. Do not invent
-extra delays.
+**sustained volume**, and volume is already bounded — in code — by the length of the worklist
+you were handed. Do not invent extra delays.
 
 ## 7. Report back
 

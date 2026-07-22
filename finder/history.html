@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Application history</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  header{padding:14px 18px;border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0;display:inline-block} h2{font-size:13px;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.6px;margin:26px 0 8px;font-weight:600}
+  .sub{color:var(--dim);font-size:12px;margin-top:4px;max-width:660px}
+  .bar{display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .filter{display:flex;gap:6px;align-items:center}
+  input[type=search],select{background:var(--card);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:7px 10px;font-size:13px}
+  .wrap{padding:14px 18px;max-width:960px}
+  ul.list{list-style:none;margin:0;padding:0}
+  li.item{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:8px 0;overflow:hidden}
+  .row{display:flex;gap:12px;align-items:baseline;padding:11px 14px;cursor:pointer}
+  .row:hover{background:rgba(127,127,127,.06)}
+  .when{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums;min-width:112px;flex:none}
+  .main{flex:1;min-width:0}
+  a.ttl{color:var(--fg);text-decoration:none;border-bottom:1px dotted var(--dim);font-weight:600}
+  a.ttl:hover{border-bottom-style:solid}
+  .co{color:var(--dim);margin-left:8px}
+  .badge{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin-left:6px;white-space:nowrap}
+  .out{font-size:12px;font-weight:600;padding:1px 9px;border-radius:10px;white-space:nowrap;flex:none}
+  .out-applied_manual,.out-submitted{color:var(--good-2);border:1px solid var(--good-2)}
+  .out-filled_review{color:var(--accent);border:1px solid var(--accent)}
+  .out-blocked{color:var(--bad);border:1px solid var(--bad)}
+  .src{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px;flex:none}
+  .caret{color:var(--dim);flex:none;transition:transform .12s;font-size:11px}
+  li.open .caret{transform:rotate(90deg)}
+  .detail{display:none;padding:2px 14px 14px 14px;border-top:1px solid var(--line);font-size:13px}
+  li.open .detail{display:block}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:4px 14px;margin-top:10px}
+  .kv .k{color:var(--dim);font-size:12px}
+  .kv .val{min-width:0;overflow-wrap:anywhere}
+  .kv a{color:var(--accent);text-decoration:none} .kv a:hover{text-decoration:underline}
+  .ans{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 11px;margin-top:8px}
+  .ans .q{color:var(--dim);font-size:12px;margin-bottom:3px}
+  .ans .a{white-space:pre-wrap}
+  .notes{white-space:pre-wrap;color:var(--fg)}
+  .muted{color:var(--dim)}
+</style></head><body>
+<header>
+  <h1>Application history</h1><a class="back" href="/">← back to cockpit</a>
+  <div class="sub">Every offer applied to — the bot's full trail (one entry per attempt, retries
+    included) plus everything you marked by hand. Click a row to see the details: CV used, the
+    free-text the bot composed, blockers and notes.</div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="filter title / company…">
+    <div class="filter">
+      <select id="src">
+        <option value="">all sources</option>
+        <option value="bot">bot only</option>
+        <option value="manual">manual only</option>
+      </select>
+      <select id="out">
+        <option value="">all outcomes</option>
+        <option value="submitted">submitted</option>
+        <option value="filled_review">filled (review)</option>
+        <option value="applied_manual">applied by hand</option>
+        <option value="blocked">blocked</option>
+      </select>
+    </div>
+    <span class="status" id="cnt"></span>
+  </div>
+</header>
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+  <div id="list"></div>
+</div>
+<script>
+let EVENTS=[];
+const esc=s=>(s==null?'':String(s)).replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
+const attr=s=>esc(s).replace(/"/g,'&quot;');
+const when=s=>(s||'').replace('T',' ').slice(0,16);
+const OUTLABEL={submitted:'submitted',filled_review:'filled (review)',
+  applied_manual:'applied by hand',blocked:'blocked'};
+
+function renderStats(ev){
+  const n=ev.length;
+  const c=k=>ev.filter(e=>e.outcome===k).length;
+  const tile=(k,v,s,cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div>`
+    +`<div class="v">${v}</div><div class="s">${s||''}</div></div>`;
+  document.getElementById('stats').innerHTML=
+     tile('total',   n, 'applications')
+    +tile('submitted',c('submitted')+c('applied_manual'),'sent',  'ok')
+    +tile('review',  c('filled_review'),'staged, not sent','rev')
+    +tile('blocked', c('blocked'),'need manual','bad');
+}
+
+function detailHtml(e){
+  const rows=[];
+  const kv=(k,v)=>rows.push(`<div class="k">${k}</div><div class="val">${v}</div>`);
+  if(e.url) kv('offer',`<a href="${attr(e.url)}" target="_blank">${esc(e.url)}</a>`);
+  if(e.apply_type) kv('apply type',esc(e.apply_type));
+  if(e.category) kv('category',esc(e.category));
+  if(e.cv_used) kv('CV used',esc(e.cv_used));
+  if(e.blocked_reason) kv('blocked',`<span class="out-blocked">${esc(e.blocked_reason)}</span>`);
+  let h=`<div class="kv">${rows.join('')}</div>`;
+  if(e.composed_answers&&e.composed_answers.length){
+    h+=e.composed_answers.map(a=>`<div class="ans">
+        <div class="q">${esc(a.field||'free text')}</div>
+        <div class="a">${esc(a.text)}</div></div>`).join('');
+  }
+  if(e.notes) h+=`<div class="kv"><div class="k">notes</div>
+      <div class="val notes">${esc(e.notes)}</div></div>`;
+  if(e.diagnostics) h+=`<div class="kv"><div class="k">diagnostics</div>
+      <div class="val notes muted">${esc(typeof e.diagnostics==='string'?e.diagnostics:JSON.stringify(e.diagnostics,null,2))}</div></div>`;
+  return h;
+}
+
+function render(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const fsrc=document.getElementById('src').value;
+  const fout=document.getElementById('out').value;
+  const ev=EVENTS.filter(e=>{
+    if(fsrc&&e.source!==fsrc) return false;
+    if(fout&&e.outcome!==fout) return false;
+    if(q){const hay=(e.title+' '+e.company).toLowerCase(); if(!hay.includes(q)) return false;}
+    return true;
+  });
+  renderStats(ev);
+  document.getElementById('cnt').textContent=
+    ev.length+' of '+EVENTS.length+' shown';
+  const list=document.getElementById('list');
+  if(!ev.length){ list.innerHTML='<div class="empty">No applications match.</div>'; return; }
+  list.innerHTML='<ul class="list">'+ev.map((e,i)=>{
+    const oc=e.outcome||'';
+    const title=e.url
+      ? `<a class="ttl" href="${attr(e.url)}" target="_blank" onclick="event.stopPropagation()">${esc(e.title||'(untitled)')}</a>`
+      : `<span class="ttl">${esc(e.title||'(untitled)')}</span>`;
+    return `<li class="item" data-i="${i}">
+      <div class="row">
+        <span class="caret">▶</span>
+        <span class="when">${esc(when(e.at))}</span>
+        <span class="main">${title}<span class="co">${esc(e.company)}</span></span>
+        <span class="src">${esc(e.source)}</span>
+        <span class="out out-${esc(oc)}">${esc(OUTLABEL[oc]||oc||'?')}</span>
+      </div>
+      <div class="detail">${detailHtml(e)}</div>
+    </li>`;
+  }).join('')+'</ul>';
+}
+
+document.getElementById('list').addEventListener('click',ev=>{
+  const li=ev.target.closest('li.item');
+  if(!li) return;
+  li.classList.toggle('open');
+});
+['q','src','out'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+
+async function load(){
+  const r=await fetch('/api/history'); const d=await r.json();
+  EVENTS=d.events||[];
+  render();
+}
+load();
+</script>
+</body></html>

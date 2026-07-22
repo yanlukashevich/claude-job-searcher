@@ -19,16 +19,26 @@ everything the agent has no business touching stays out of it.
 
 ```
 claude_job_seracher/          <- never mounted; invisible to the agent
-  CLAUDE.md  ARCHITECTURE.md  build_worklist.ps1  offers_queue.json  old/
+  CLAUDE.md  ARCHITECTURE.md  README.md
+  finder/                     <- offer collection + triage + worklist (Python cockpit)
+  docs/                       <- JUSTJOIN_API_NOTES.md and design notes
+  legacy/                     <- frozen, superseded PowerShell pipeline
+  trainer/                    <- prompt-optimization loop (its own Cowork mount)
   src/                        <- Cowork mounts THIS
     orchestrator_instructions.md   applier_instructions.md   profile.md
+    ats_quirks.md
     worklist.json  applications_log.jsonl  todo_manual.md  CV_PDF/
 ```
 
-This replaces prose with geometry. `offers_queue.json` is out of reach, so nothing has to tell
-the orchestrator not to read it; `CLAUDE.md` is out of reach, so it is not injected into every
-subagent. **Keep it that way** — a file moved into `src/` is a file the agent will find, and
-every extra token in there is paid once per subagent.
+This replaces prose with geometry. The finder, its offer database and `CLAUDE.md` are all out
+of reach, so nothing has to tell the orchestrator not to read them, and `CLAUDE.md` is not
+injected into every subagent. **Keep it that way** — a file moved into `src/` is a file the
+agent will find, and every extra token in there is paid once per subagent.
+
+`ats_quirks.md` is the pressure valve for that last rule. Per-ATS recipes are long, are needed
+on a minority of offers, and would otherwise be paid on every one — so they live in a file the
+applier is told to open **only** when Apply hands it off to an external ATS. Anything that is
+true of one vendor's form and not of forms in general belongs there, not in the playbook.
 
 `applications_log.jsonl` is the exception. It is an *output*, so it must be inside the mount,
 and the orchestrator must read its last line to verify each outcome. That rule is conditional
@@ -47,14 +57,17 @@ needing an absent hard fact is a *block*, not a guess.
 
 ## Running it
 
-Two steps. Deterministic work lives in code; reasoning lives in the agent.
+Two steps. Offer selection is a human review in the finder; applying is the agent.
 
 ```powershell
-# 1. CODE - filtering, dedup, caps. Reads offers_queue.json, writes src\worklist.json.
-.\build_worklist.ps1 -Limit 1        # careful first run: 1 offer
-.\build_worklist.ps1                 # whole queue, bounded by -DailyCap (default 12)
-.\build_worklist.ps1 -DryRun         # print the selection, write nothing
+# 1. FINDER - harvest, score, pick. See finder/README.md.
+python finder\harvest.py             # pull the justjoin feed into finder/data/offers_db.jsonl
+python finder\app.py                 # open http://127.0.0.1:8000, review, tick offers, "Write worklist"
 ```
+
+The cockpit shows each offer's **applied** status (bot log + your manual marks), so you pick the
+unapplied ones; **Write worklist** drops them into `src\worklist.json`. There is no daily cap —
+how many you tick is the only throttle.
 
 **2. PROSE** — open the **Claude desktop app (Cowork)**, connect the **`src/` folder** (not the
 project root), and give it `orchestrator_instructions.md` as the task. It reads `worklist.json`
@@ -63,15 +76,15 @@ and driving one application.
 
 - **It must run in Cowork, not the CLI.** Only Cowork's `claude-in-chrome` server can attach a
   CV (reads the file host-side → base64); the CLI forwards raw paths, which the extension
-  rejects. `old/run_applier.ps1` is deprecated and will silently fail to attach a CV.
+  rejects.
 - `review` mode (default) = fill everything, **stop before final Submit**. `auto` = fill and
   submit.
 
 ## Data flow
 
 ```
-offers_queue.json  (Finder output)
-   → build_worklist.ps1   CODE: status:pending + dedup vs log + -Limit + -DailyCap
+finder/harvest.py  →  finder/data/offers_db.jsonl   (every offer ever seen)
+   → finder cockpit (app.py)  CODE: score + join applied-status; you pick
       → src/worklist.json
          → Cowork orchestrator  (trusts worklist, never re-filters)
             → one fresh subagent per offer  (applier_instructions.md + profile.md)
@@ -80,8 +93,10 @@ offers_queue.json  (Finder output)
                   → todo_manual.md           (blocked offers only)
 ```
 
-Dedup, limits and the daily cap are exact set/count operations — an LLM re-reading the log to
-compare URLs burns tokens *and* can miscompare.
+`applications_log.jsonl` is the anti-double-apply record: the cockpit joins it back onto the
+offer list so already-applied offers are visibly marked. The old set-based dedup lived in
+`legacy/build_worklist.ps1` (frozen). The applier still must not read the log for dedup —
+only to verify each outcome.
 
 ## Editing the prompts
 
