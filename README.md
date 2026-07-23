@@ -13,11 +13,12 @@ forms end-to-end without human correction, and prompt training cut its token cos
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A["Harvest"] --> B["Score"] --> C["Human cockpit"] --> D["Worklist"]
-    D --> E["Orchestrator"] --> F["Per-offer applier subagents"] --> G["Audit log"]
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/pipeline-dark.svg">
+    <img alt="Pipeline: Harvest → Score → Human cockpit → Worklist → Orchestrator → Per-offer applier subagents → Audit log" src="docs/pipeline-light.svg" width="820">
+  </picture>
+</p>
 
 A Python **finder** pulls every matching offer from the job boards' public JSON APIs into an
 append-only database and scores it. A local web **cockpit** visualizes the results — grouped
