@@ -14,7 +14,7 @@ When this file and the playbook disagree on a fact, this file wins.
 ## Links
 - GitHub: https://github.com/yanlukashevich
 - Portfolio: https://drukmruk.pl
-- LinkedIn: *(brak / do uzupełnienia)*
+- LinkedIn: (https://www.linkedin.com/in/yan-lukashevich-536977364/)
 
 ## Work authorization
 - Status: **permanent residence** (karta stałego pobytu) · needs sponsorship: **no** · EU work rights: **yes**
@@ -26,8 +26,9 @@ When this file and the playbook disagree on a fact, this file wins.
 - Work mode: najlepiej zdalne, ale hybrydowe lub stacjonarne też OK / *remote preferred, hybrid or on-site also fine*
 
 ## Employment
-- Contract types: **umowa o pracę** or **B2B** (no preference)
-- Expected salary: **10000 PLN / month, gross** — negotiable (a starting point)
+- Contract types: **umowa o pracę preferred**, B2B also fine
+- Expected salary: **10000 PLN / month, gross**
+- Hourly rate (per-hour / B2B forms): **60 PLN / hour**
 
 ## Languages
 - Polish — **C2**
@@ -117,6 +118,20 @@ https://github.com/yanlukashevich/Respirator-simulator
 - Zaplecze naukowe w Pythonie (2 lata, UMK) — biblioteka obliczeniowa dla całej grupy badawczej, automatyzacja klastra HPC.
 - Prowadzę zespoły i projekty do wyniku — 1. miejsce w konkursie, laureat, wejście w komercjalizację (spin-off).
 - Doprowadzam rzeczy do końca niezależnie od bariery: technicznej, biznesowej czy formalnej.
+
+## What I'm looking for / motivation (canonical answers)
+For questions like „czego szukasz?", „dlaczego zmieniasz pracę?", „motywacja do zmiany":
+
+- **Czego szukam — PL:** „Zależy mi na pracy w zespole, w którym mogę się uczyć od lepszych
+  i robić ambitne rzeczy. Doceniam dobrą atmosferę, dzielenie się wiedzą, szkolenia
+  i elastyczność (praca zdalna/hybrydowa)."
+- **What I'm looking for — EN:** "I want to work in a team where I can learn from people
+  better than me and build ambitious things. I value a good atmosphere, knowledge sharing,
+  training, and flexibility (remote/hybrid work)."
+- **Motywacja do zmiany — PL:** „Teraz chcę rozwijać się w większym, doświadczonym zespole,
+  żeby w przyszłości móc wejść w rolę lidera."
+- **Motivation to change — EN:** "I now want to grow in a larger, experienced team so that
+  in the future I can step into a leadership role."
 
 ## CV variants
 Files under `CV_PDF/`. Default variant = **universal**.

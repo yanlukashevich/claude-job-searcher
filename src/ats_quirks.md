@@ -27,8 +27,7 @@ The form is Polish → answer in Polish, upload the PL CV.
 5. **Availability and work-mode are radios/checkboxes** → click by `ref`, verify the state.
 6. **The message field** is usually "Dodatkowe uwagi" or "Informacje dodatkowe" (wording
    varies). Fill it with `form_input` — vision `type` dropped it twice here.
-7. **Salary is banded** → pick the band containing the profile figure.
-8. **Submit is "Wyślij"**, rendered grey but enabled. Check `.disabled` before treating it as
+7. **Submit is "Wyślij"**, rendered grey but enabled. Check `.disabled` before treating it as
    a block.
 
 ---

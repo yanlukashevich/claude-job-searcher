@@ -43,24 +43,22 @@ English. Match its register (Polish recruitment defaults to polite formal unless
 is clearly casual). Pick the **CV language** the same way (§5).
 
 ## 3. Hard rules (non-negotiable)
-1. **Never invent hard facts.** Experience, years-per-tech, salary, work authorization,
+1. **Never invent hard facts.** Experience, years-per-tech, work authorization,
    certificates, dates, contact details come **only** from `profile.md`. A required field
    needing a hard fact not in the profile, and not safely derivable → **block** (§7.3).
-2. **Never alter** salary, notice period, or work-authorization values.
+2. **Never alter** notice period or work-authorization values. Salary comes **only** from
+   the salary rule in §6 field-mapping — never any other figure.
 3. **One consistent identity** — same name, email, phone, links everywhere, every offer.
 4. **No account registration, no Gmail.** Forced account creation → block (§7.2).
 5. **Do not attempt to defeat CAPTCHA / anti-bot.** → block (§7.1).
 
 ## 4. Free-text (messages, "why us", open questions)
-**Compose free text only when the form cannot be submitted without it.** Employer message,
-"introduce yourself", motivation, cover letter, open questions — **every** free-text field
-stays **blank unless it is required** (marked `*` / "wymagane" / rejected on submit). An
-unasked-for note is cost and risk for nothing; blank is the correct answer, and no
-field-mapping bullet (§6) makes an optional one worth filling.
+**Fill every free-text field, optional ones included** — employer message, "introduce
+yourself", motivation, cover letter, open questions. Write a note, not an essay:
 
-When a field **is** required, write a note, not an essay:
-
-- **1–2 short sentences. Hard cap.** Never a paragraph. Never the CV in prose.
+- **Optional field → exactly one short sentence. Required field → 1–2 short sentences.
+  Hard cap.** Never a paragraph. Never the CV in prose. Exception: when `profile.md` has a
+  **canonical answer** matching the question, use it verbatim at its own length.
 - **Hook it to something specific in *this* offer's description** — the actual project, the
   domain, or the one technology they lead with. That specificity is what makes it read as
   written by a person rather than generated.
@@ -75,6 +73,13 @@ Use the **CV variants** table in `profile.md`: map offer `stack` → variant
 (`python`→python, `dotnet`→dotnet, `cloud`/`devops`→cloud, anything else/mixed/unknown →
 `universal`), then pick `pl`/`en` by the form's language (§2), then upload that exact path
 (relative to this folder).
+
+**A one-click / internal-modal form arrives with a CV already attached.** justjoin stores
+one file under a generic name, and the content behind that name changes — the pre-attached
+CV may be a different variant than its filename suggests. **Never keep it.** On that modal
+the **Apply button submits immediately — it does not open a form to fill.** The fill-in form
+is behind the **"edit"** link on the CV box: click it, replace the attachment there with the
+variant chosen above, confirm the new filename shows, and only then go to Apply.
 
 **Don't verify the file exists — just upload it.** Per §0 the mount lies about this folder,
 and `Read` on a PDF fails with a *rendering* error that says nothing about the file. The only
@@ -118,8 +123,8 @@ diagnose a page you cannot understand from text.
 **`apply_url` given → `navigate` straight to it.** It is the company's own ATS; there is no
 justjoin page and no justjoin Apply click. The ATS often shows the posting first behind its
 *own* Apply button — click that to reach the form. One catch: you skipped justjoin's job
-description, so hook any **required** free-text (§4) to the offer title/stack from your input
-plus whatever the ATS page itself shows. If `apply_url` 404s or the posting is gone → §7.4
+description, so hook free-text (§4) to the offer title/stack from your input plus whatever
+the ATS page itself shows. If `apply_url` 404s or the posting is gone → §7.4
 `dead-link`.
 
 **No `apply_url` (internal offer, or the field is absent) → `navigate` to the offer URL and
@@ -155,8 +160,8 @@ navigate → apply_url if given (external ATS), else the offer URL
  → external ATS? → read ats_quirks.md
  → read every form field (get_page_text / read_page)
  → per field: required + hard fact → copy from profile.md
-              required free-text → compose 1–2 sentences (§4), form language
-              anything else optional → LEAVE BLANK (don't be helpful here)
+              free-text (required OR optional) → compose per §4, form language
+              other optional non-text fields → LEAVE BLANK
               required + unknown hard fact → BLOCK (§7.3, missing-fact). Auto: stop now.
                 Review: fill the rest for the user, still report it blocked
  → fill (form_input for low-sensitivity; vision for guarded/CAPTCHA pages) + upload CV (§5)
@@ -170,19 +175,25 @@ The warm logged-in session is the main protection against justjoin.it's account-
 detection; don't waste it.
 
 ### Field-mapping
-**Default for every optional field: leave it blank** — free-text included (§4). The bullets
-below map each value's *source* when a field must be filled; they never make an optional one
-worth filling.
+**Free-text fields are always composed (§4), required or not. Every other optional field**
+— a link missing from the profile, marketing consents, extra uploads — **stays blank.** The
+bullets below map each value's *source*.
 
 - Name / email / phone → Personal (use E.164 phone when a country code is wanted).
-- LinkedIn / GitHub / portfolio → Links. If LinkedIn is missing and the field is optional, skip it; only a *required* one is a problem.
-- Salary → Employment (monthly, PLN, gross). Period-unspecified **or netto-labelled** monthly → give the profile figure **unchanged** (never convert netto↔gross); banded → the band holding it. Only a **per-hour** rate is a missing fact (§7.3).
-- Notice period / availability / remote / relocation → Availability (immediately available; remote preferred but flexible; willing to relocate).
-- Work authorization / "can you legally work in PL?" → Work authorization (permanent residence, no sponsorship, EU work rights = yes).
+- LinkedIn / GitHub / portfolio → Links.
+- **Salary** (monthly, PLN, gross): offer posted widełki with a lower bound inside
+  **10–15 tys. → answer that bound**; otherwise → the profile's monthly figure. Bare number
+  only; netto-labelled or period-unspecified → same figure **unchanged** (never convert
+  netto↔gross); banded → the band holding it; per-hour → the profile's hourly rate. Any
+  other shape → approximate from the profile figures — **salary never blocks**.
+- **City / location → the offer's city, not Toruń.** A city, location or office field means where the job is: single-city offer → that city; multi-city → **Gdańsk if listed, else the biggest listed city** (Warszawa, Kraków, Wrocław, Poznań…), smaller ones last. Only a full residential-address block (street + postal code) takes the Toruń address from Personal.
+- Contract type ("forma współpracy") → Employment: single choice → the preferred type; multi-select → tick every acceptable one.
+- Notice period / availability / work mode → Availability; relocation → Personal.
+- Work authorization / "can you legally work in PL?" → Work authorization (ready PL/EN answer strings there).
 - Language level → Languages, via the CEFR mapping in `profile.md` — after reading the form's actual option labels.
 - **"Years of X"** → Years-per-technology table. Present confidently but **never state more than the listed number**; if X isn't listed, don't invent — leave blank if optional, block if required.
 - Consent / GDPR checkboxes → tick the **required** ones (needed to apply); leave optional marketing consents unticked.
-- Employer message / cover letter / "why us" / open questions → **required only**: compose 1–2 sentences (§4).
+- Employer message / cover letter / "why us" / open questions → compose per §4 (optional → one sentence, required → 1–2).
 
 ## 7. The only "stop → manual" triggers
 Stop, log to `todo_manual.md`, move on **only** for:
