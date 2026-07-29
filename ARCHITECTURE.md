@@ -38,8 +38,9 @@ apply step can be run and reviewed separately.
 ### 3.1 Finder — BUILT (`finder/`, Python, see `finder/README.md`)
 - **Input:** search criteria (stack, seniority) baked into `harvest.py`'s API query.
 - **Job:** pull justjoin.it's JSON listings API (confirmed to exist; recon paid off) into an
-  append-only offer DB, score every offer with a keyword classifier, and serve a local
-  **cockpit** (`app.py`) where the user reviews and picks.
+  offer DB that only ever grows — an offer that leaves the feed is marked `archived_at`
+  (expired) rather than deleted — score every offer with a keyword classifier, and serve a
+  local **cockpit** (`app.py`) where the user reviews and picks (expired hidden by default).
 - **Dedup:** the cockpit joins `applications_log.jsonl` (bot) and `manual_applied.json` (you)
   onto each offer as a visible **applied** status, so already-applied offers are skipped by
   the human at pick time — no automatic set-filter (that was `legacy/build_worklist.ps1`).

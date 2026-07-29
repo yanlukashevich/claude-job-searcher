@@ -59,6 +59,18 @@ def append_jsonl(path, records):
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
+def write_jsonl(path, records):
+    """Rewrite a jsonl file atomically (tmp + replace). Archiving stamps a field on rows that
+    are already stored, so the file cannot be append-only any more; the swap keeps a crash from
+    leaving a half-written db behind."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8", newline="\n") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    tmp.replace(path)
+
+
 def salary_str(employment_types):
     for e in employment_types or []:
         if e.get("currency") == "PLN" and e.get("from"):

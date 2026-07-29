@@ -74,6 +74,10 @@
   .bklegend .s3{background:var(--b4)}.bklegend .s4{background:var(--b5)}.bklegend .s5{background:var(--b6)}
   li.of.applied{opacity:.62}
   li.of.applied .ttl{text-decoration:line-through}
+  li.of.expired{opacity:.55;border-style:dashed;border-left-style:solid}
+  .expbadge{font-size:10px;font-weight:700;letter-spacing:.5px;border:1px solid var(--dim);
+    color:var(--dim);border-radius:8px;padding:0 6px;text-transform:uppercase}
+  .expnote{color:var(--dim);font-size:12px;margin:8px 0 0}
   .detail{display:none;padding:2px 13px 12px;border-top:1px solid var(--line);font-size:12.5px}
   li.of.open .detail{display:block}
   .detail dl{display:grid;grid-template-columns:130px 1fr;gap:2px 12px;margin:8px 0}
@@ -138,9 +142,14 @@
       <option value="co1">hide companies I applied to</option>
       <option value="co2">hide companies I applied 2+</option>
     </select>
+    <select id="expired" title="Expired = the offer dropped off the justjoin feed on a later harvest. It stays in the db as history.">
+      <option value="hide">hide expired</option>
+      <option value="show">+ expired</option>
+      <option value="only">only expired</option>
+    </select>
     <span class="cnt" id="cnt"></span>
     <span style="margin-left:auto"></span>
-    <a class="tool" id="harvestlink" href="/harvest" title="Re-collect the live feed and prune stale offers.">↻ Harvest</a>
+    <a class="tool" id="harvestlink" href="/harvest" title="Re-collect the live feed and mark vanished offers expired.">↻ Harvest</a>
     <a class="tool" id="historylink" href="/history" title="Every offer applied to and the details of each application.">📋 History</a>
     <button class="tool primary" id="write" disabled>Write worklist (0)</button>
     <button class="tool" id="clearsel">clear</button>
@@ -154,7 +163,8 @@
   <div id="list"></div>
 </div>
 <script>
-let OFFERS=[];
+let OFFERS=[];                    // every offer, live and expired
+let POOL=[];                      // OFFERS minus what the expired selector hides
 const SEL=new Set();              // urls picked for the worklist
 const COEXP=new Set();            // company names whose group is expanded
 const BIG=5;                      // a company with >= this many shown offers gets a warning
@@ -177,19 +187,25 @@ function whyHtml(w){
 async function load(){
   const r=await fetch('/api/offers'); const d=await r.json();
   OFFERS=d.offers;
-  // count categories over the full dataset (stable; the dropdown + chip bar both use these).
+  rebuildCats();
+  render();
+}
+
+// Category counts are computed over POOL = everything the expired selector lets through, so
+// they stay stable while you filter by search/category but still drop when you hide expired.
+function rebuildCats(){
+  POOL=OFFERS.filter(expMatch);
   // CATCOUNTS = total offers (dropdown); HICOUNTS = high-scoring offers (drives the chip picks).
   CATCOUNTS={}; HICOUNTS={};
-  for(const o of OFFERS){
+  for(const o of POOL){
     CATCOUNTS[o.category]=(CATCOUNTS[o.category]||0)+1;
     if(o.bucket>=HImin) HICOUNTS[o.category]=(HICOUNTS[o.category]||0)+1;
   }
   const cats=Object.keys(CATCOUNTS).sort((a,b)=>CATCOUNTS[b]-CATCOUNTS[a]);  // dropdown: by size
   // chips: the categories richest in high-scoring offers (e.g. python, net, javascript)
   BIGCATS=Object.keys(HICOUNTS).sort((a,b)=>HICOUNTS[b]-HICOUNTS[a]).slice(0,NBIG);
-  document.getElementById('cat').insertAdjacentHTML('beforeend',
-    cats.map(c=>`<option value="${attr(c)}">${esc(c)} (${CATCOUNTS[c]})</option>`).join(''));
-  render();
+  document.getElementById('cat').innerHTML='<option value="">all categories</option>'
+    +cats.map(c=>`<option value="${attr(c)}">${esc(c)} (${CATCOUNTS[c]})</option>`).join('');
 }
 
 // catScope = search + category (drives the bucket bar — its whole job is the distribution).
@@ -203,10 +219,19 @@ function catMatch(o){
   return o.category===CATSEL;                         // one exact category
 }
 
+// expired = archived by a harvest (gone from the live feed). Filtered here, alongside search
+// and category, so every count on the page describes the same set of offers you can see.
+function expMatch(o){
+  const m=document.getElementById('expired').value;
+  if(m==='only') return o.archived;
+  if(m==='hide') return !o.archived;
+  return true;
+}
+
 function scoped(){
   const q=document.getElementById('q').value.toLowerCase().trim();
   return OFFERS.filter(o=>
-    catMatch(o) &&
+    catMatch(o) && expMatch(o) &&
     (!q || (o.title+' '+o.company+' '+o.skills.join(' ')).toLowerCase().includes(q)));
 }
 
@@ -221,12 +246,17 @@ function renderStats(statScope, catScope){
   const tile=(k,v,s,cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div>`
     +`<div class="v">${v}</div><div class="s">${s||''}</div></div>`;
   const bsel=[...BSEL].sort().map(i=>BK[i]).join('/')||'none';
+  // the expired tile counts the WHOLE db, not the scope — its job is to say how much history
+  // the selector is currently holding back.
+  const expMode=document.getElementById('expired').value;
+  const expTot=OFFERS.reduce((n,o)=>n+(o.archived?1:0),0);
   document.getElementById('stats').innerHTML=
      tile('offers', statScope.length, `${companies} companies · ${bsel}`)
     +tile('new', fresh, 'since last harvest', fresh?'newv':'')
     +tile('applied', applied.length, `${bot.length} bot · ${manual.length} me`, applied.length?'hl':'')
     +tile('blocked', blocked.length, blocked.length?'needs manual':'—', blocked.length?'warnv':'')
-    +tile('still open', openGood, 'not applied yet', openGood?'hl':'');
+    +tile('still open', openGood, 'not applied yet', openGood?'hl':'')
+    +(expTot?tile('expired', expTot, expMode==='hide'?'hidden':'in view'):'');
 
   // bucket distribution bar over the FULL category scope — shows the whole makeup regardless
   // of which buckets are selected, so you can see how much of a category is STRONG vs junk.
@@ -245,9 +275,9 @@ function renderStats(statScope, catScope){
 // catch-all. The chip number is the count of HIGH-scoring (STRONG/PLAUS) offers — that's the
 // whole point of the picks; total offers is on hover. Counts are full-dataset, so stable.
 function renderCatbar(){
-  const allHi=OFFERS.reduce((n,o)=>n+(o.bucket>=HImin?1:0),0);
-  const restHi=OFFERS.reduce((n,o)=>n+((o.bucket>=HImin && !BIGCATS.includes(o.category))?1:0),0);
-  const restTot=OFFERS.reduce((n,o)=>n+(BIGCATS.includes(o.category)?0:1),0);
+  const allHi=POOL.reduce((n,o)=>n+(o.bucket>=HImin?1:0),0);
+  const restHi=POOL.reduce((n,o)=>n+((o.bucket>=HImin && !BIGCATS.includes(o.category))?1:0),0);
+  const restTot=POOL.reduce((n,o)=>n+(BIGCATS.includes(o.category)?0:1),0);
   const chip=(sel,label,hi,tot)=>{
     const on=CATSEL===sel;
     const rest=sel==='__rest__'?' rest':'';
@@ -255,7 +285,7 @@ function renderCatbar(){
       +` title="${hi} high-scoring (STRONG/PLAUS) of ${tot} total">`
       +`${esc(label)}<span class="n">${hi}</span></span>`;
   };
-  const parts=[chip('','all',allHi,OFFERS.length)];
+  const parts=[chip('','all',allHi,POOL.length)];
   for(const c of BIGCATS) parts.push(chip(c, c, HICOUNTS[c]||0, CATCOUNTS[c]));
   if(restTot) parts.push(chip('__rest__','rest', restHi, restTot));
   document.getElementById('catbar').innerHTML=parts.join('');
@@ -293,11 +323,13 @@ function offerLi(o){
   const title=o.url?`<a class="ttl" href="${attr(o.url)}" target="_blank" onclick="event.stopPropagation()">${esc(o.title)}</a>`
                    :`<span class="ttl">${esc(o.title)}</span>`;
   const newb=o.is_new?'<span class="newbadge">new</span>':'';
-  return `<li class="of lb${o.bucket}${applied?' applied':''}" data-u="${attr(o.url)}">
+  const expb=o.archived
+    ?`<span class="expbadge" title="off the feed since ${attr((o.archived_at||'').slice(0,10))}">expired</span>`:'';
+  return `<li class="of lb${o.bucket}${applied?' applied':''}${o.archived?' expired':''}" data-u="${attr(o.url)}">
     <div class="row">
       ${checkbox}
       <span class="score">${o.score>0?'+':''}${o.score}</span>${o.score_override?'<span class="ovr" title="manual score">✎</span>':''}
-      ${title} ${newb} ${meta} ${pill} ${mark}
+      ${title} ${newb} ${expb} ${meta} ${pill} ${mark}
       <span class="caret">▸</span>
     </div>
     <div class="detail">${detailHtml(o)}</div>
@@ -324,7 +356,10 @@ function applyPrompt(o){
 }
 
 function detailHtml(o){
-  let h=`<div class="skills">${esc(o.skills.join(' · '))||'—'}</div>`;
+  let h='';
+  if(o.archived) h+=`<div class="expnote">Expired — gone from the justjoin feed since the harvest of
+    ${esc((o.archived_at||'').replace('T',' ').slice(0,16))}. Kept as history; the link is probably dead.</div>`;
+  h+=`<div class="skills">${esc(o.skills.join(' · '))||'—'}</div>`;
   h+=`<div class="why">${whyHtml(o.why)}</div>`;
   const a=o.application;
   if(a){
@@ -438,6 +473,8 @@ document.getElementById('catbar').addEventListener('click',e=>{
 });
 document.getElementById('cosize').addEventListener('change',render);
 document.getElementById('hidemode').addEventListener('change',render);
+// changing the expired mode changes the pool the category counts are drawn from
+document.getElementById('expired').addEventListener('change',()=>{ rebuildCats(); render(); });
 
 // bucket filter: clicking a bar segment or a legend chip toggles that bucket in/out of view
 function toggleBucket(i){ BSEL.has(i)?BSEL.delete(i):BSEL.add(i); render(); }

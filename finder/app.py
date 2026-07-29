@@ -1,7 +1,8 @@
 """One page, one source of truth. The apply cockpit.
 
 Serves offers.html and a tiny JSON API that JOINS three files by offer URL:
-  - finder/data/offers_db.jsonl   the offers (harvest.py writes it; append-only)
+  - finder/data/offers_db.jsonl   the offers (harvest.py writes it; rows are never deleted,
+                                  vanished ones are stamped archived_at)
   - src/applications_log.jsonl    what the BOT did (applier appends; append-only)
   - finder/data/manual_applied.json   what YOU did by hand (mutable, toggle-able)
 
@@ -28,9 +29,9 @@ HERE = Path(__file__).resolve().parent           # finder/
 sys.path.insert(0, str(HERE))                    # common
 sys.path.insert(0, str(HERE / "prototype"))      # scoring, keywords
 
-from common import ROOT                           # noqa: E402
+from common import ROOT, write_jsonl              # noqa: E402
 from scoring import classify, BUCKETS            # noqa: E402
-from harvest import fetch_fresh                   # noqa: E402
+from harvest import fetch_fresh, merge            # noqa: E402
 
 OFFERS_DB = HERE / "data" / "offers_db.jsonl"
 MANUAL = HERE / "data" / "manual_applied.json"
@@ -100,6 +101,10 @@ def _scored_offers():
             "apply_url": o.get("apply_url", ""),
             "published": o.get("published", ""),
             "added_at": o.get("added_at"),   # set by /api/harvest for offers seen in that run
+            # archived_at = the run that first found this offer gone from the feed (expired).
+            # It is data, not a filter: the cockpit decides whether to show these.
+            "archived_at": o.get("archived_at"),
+            "revived_at": o.get("revived_at"),
             "score": score,
             "bucket": BUCKETS.index(bucket),
             "bucket_name": bucket,
@@ -149,23 +154,6 @@ def _last_harvest():
     return None
 
 
-def _applied_urls():
-    """Every url you've committed to — bot log or manual mark. These are never pruned,
-    even once the offer drops off the live feed: they are the audit trail."""
-    return set(_bot_applications()) | set(_manual())
-
-
-def _write_offers_db(offers):
-    """Rewrite offers_db.jsonl atomically (tmp + replace). The file was append-only until
-    Re-harvest; pruning stale rows means a full rewrite, so write to a temp file and swap
-    to avoid ever leaving a half-written db on a crash."""
-    tmp = OFFERS_DB.with_suffix(".jsonl.tmp")
-    with tmp.open("w", encoding="utf-8", newline="\n") as f:
-        for o in offers:
-            f.write(json.dumps(o, ensure_ascii=False) + "\n")
-    tmp.replace(OFFERS_DB)
-
-
 # ---- API -----------------------------------------------------------------------------------
 
 @app.get("/api/offers")
@@ -185,6 +173,7 @@ def api_offers():
         row["score_at"] = (sc or {}).get("at")
         if sc:
             row["score"] = sc["score"]
+        row["archived"] = bool(o.get("archived_at"))
         app_row = bot.get(o["url"])
         row["application"] = app_row               # full bot log line, or None
         row["manual_at"] = manual.get(o["url"])    # iso string, or None
@@ -204,45 +193,15 @@ def api_offers():
             "generated": datetime.now(timezone.utc).isoformat()}
 
 
-def _url_of_db(o):
-    for s in o.get("sources", []):
-        if s.get("url"):
-            return s["url"]
-    return ""
-
-
 @app.post("/api/harvest")
 def api_harvest():
-    """Re-collect the whole justjoin feed, then prune. Keep every live offer and every
-    offer you already applied to (history); drop offers that fell off the feed and were
-    never applied to. Returns the run summary and stamps last_harvest.json."""
+    """Re-collect the whole justjoin feed and fold it in. Nothing is deleted: offers that fell
+    off the feed are stamped `archived_at` (expired) and offers that came back are un-stamped.
+    Returns the run summary and stamps last_harvest.json."""
     at = datetime.now(timezone.utc).isoformat()
     fresh = fetch_fresh(0)                                  # {id: offer} — full re-collect
-    existing = {o["id"]: o for o in _read_jsonl(OFFERS_DB)}
-    applied = _applied_urls()
-
-    kept, added = [], 0
-    for oid, o in fresh.items():
-        if oid in existing:
-            kept.append(existing[oid])                     # still live — keep as-is (first_seen)
-        else:
-            o["added_at"] = at                             # genuinely new this run
-            kept.append(o)
-            added += 1
-
-    removed = 0
-    for oid, o in existing.items():
-        if oid in fresh:
-            continue                                       # still live, already kept above
-        if _url_of_db(o) in applied:
-            kept.append(o)                                 # stale but applied — keep the history
-        else:
-            removed += 1                                   # stale and untouched — prune
-
-    _write_offers_db(kept)
-    summary = {"at": at, "added": added, "removed": removed,
-               "total": len(kept), "live": len(fresh),
-               "kept_stale": len(kept) - len(fresh)}   # stale offers kept as history (applied)
+    merged, summary = merge(_read_jsonl(OFFERS_DB), fresh, at)
+    write_jsonl(OFFERS_DB, merged)
     LAST_HARVEST.parent.mkdir(parents=True, exist_ok=True)
     LAST_HARVEST.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     with HARVEST_LOG.open("a", encoding="utf-8", newline="\n") as f:

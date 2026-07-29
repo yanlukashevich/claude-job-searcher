@@ -3,20 +3,22 @@
 - Pages through the public list API (itemsCount=100 is honored; `from` paginates, cursor lies).
 - Collapses per-city duplicates on title+company; the feed is publishedAt-desc so the
   kept row is the newest.
-- Upserts: known ids are skipped, new ids are appended. Nothing is ever rewritten.
+- Upserts: new ids are appended, known ids keep their stored row.
+- An offer is never deleted. One that fell off the feed gets `archived_at` stamped (expired);
+  one that comes back has it cleared. The cockpit hides archived offers by default.
 
 This is the only data source the triage prototype (finder/prototype/) reads.
 
 Usage:
-  python finder/harvest.py            # full harvest (first run)
-  python finder/harvest.py --days 7   # weekly run: stop paging past the cutoff
+  python finder/harvest.py            # full harvest: adds new, archives what's gone
+  python finder/harvest.py --days 7   # weekly run: stop paging past the cutoff (adds only)
 """
 import argparse
 import datetime
 import time
 
-from common import (OFFERS_DB, append_jsonl, get_json, offer_id, read_jsonl,
-                    salary_str)
+from common import (OFFERS_DB, get_json, offer_id, read_jsonl, salary_str,
+                    write_jsonl)
 
 LIST_URL = ("https://justjoin.it/api/candidate-api/offers"
             "?experienceLevels=mid&experienceLevels=junior"
@@ -81,6 +83,37 @@ def fetch_fresh(days=0):
     return collapse(fetch_rows(days))
 
 
+def merge(existing, fresh, at, archive_missing=True):
+    """Fold a fresh harvest into the stored rows. Returns (rows, summary).
+
+    Nothing is ever dropped: a stored offer that is missing from the feed gets `archived_at`
+    stamped, and one that reappears has it cleared (with `revived_at` for the record). Only a
+    FULL harvest can tell "gone" from "not in this slice", so a --days run passes
+    archive_missing=False and merely adds.
+    """
+    by_id = {o["id"]: o for o in existing}
+    added = revived = archived = 0
+    for oid, o in fresh.items():
+        cur = by_id.get(oid)
+        if cur is None:
+            o["added_at"] = at
+            by_id[oid] = o
+            added += 1
+        elif cur.pop("archived_at", None):
+            cur["revived_at"] = at
+            revived += 1
+    if archive_missing:
+        for oid, o in by_id.items():
+            if oid not in fresh and not o.get("archived_at"):
+                o["archived_at"] = at
+                archived += 1
+    rows = list(by_id.values())
+    summary = {"at": at, "added": added, "archived": archived, "revived": revived,
+               "live": len(fresh), "total": len(rows),
+               "archived_total": sum(1 for o in rows if o.get("archived_at"))}
+    return rows, summary
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=0,
@@ -91,11 +124,14 @@ def main():
     fresh = collapse(rows)
     print(f"fetched {len(rows)} rows -> {len(fresh)} unique offers")
 
-    known = {o["id"] for o in read_jsonl(OFFERS_DB)}
-    new = [o for o in fresh.values() if o["id"] not in known]
-    append_jsonl(OFFERS_DB, new)
-    print(f"offers_db: {len(known)} known, +{len(new)} new, {len(known) + len(new)} total")
-    print("next: python finder/prototype/browse.py --open")
+    at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    merged, s = merge(read_jsonl(OFFERS_DB), fresh, at, archive_missing=not args.days)
+    write_jsonl(OFFERS_DB, merged)
+    print(f"offers_db: +{s['added']} new, {s['archived']} archived, {s['revived']} revived, "
+          f"{s['total']} total ({s['archived_total']} archived)")
+    if args.days:
+        print("(--days is a partial feed: nothing archived)")
+    print("next: python finder/app.py")
 
 
 if __name__ == "__main__":

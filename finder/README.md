@@ -7,7 +7,7 @@ terminal in the project root.
 ## The pipeline
 
 ```
-1. harvest.py   CODE  justjoin API -> data/offers_db.jsonl (facts, append-only)
+1. harvest.py   CODE  justjoin API -> data/offers_db.jsonl (facts; adds new, archives gone)
 2. app.py       CODE  serves the cockpit: joins offers_db + bot log + your manual
                       marks, groups by company, writes src/worklist.json
 3. (you) review the cockpit, pick 1-2 per company, hit "Write worklist"
@@ -21,8 +21,10 @@ call in the cockpit. See `prototype/README.md` for the buckets and the scoring r
 ## How to run
 
 ```powershell
-# 1. Harvest (first run: everything; later runs: --days 7)
+# 1. Harvest (full run: adds new offers, marks vanished ones expired)
 python finder\harvest.py
+# --days 7 pages only the last week; a partial feed cannot tell "gone" from
+# "not in this slice", so it only adds and never archives.
 
 # 2. Start the cockpit, then open http://127.0.0.1:8000
 python finder\app.py
@@ -41,20 +43,26 @@ JSON inline). It's the orchestrator's per-subagent task for one offer — paste 
 Cowork agent to apply to just that offer without going through `worklist.json`.
 
 The **↻ Harvest** link in the header opens a dedicated subpage at **`/harvest`** with one
-button that re-pulls the whole live feed. It keeps every live offer and every offer you
-already applied to (bot or by hand, as history), and **prunes offers that fell off the feed
-and were never applied to**. The subpage shows tiles (`+new`, `−removed`, in db, live,
-history-kept), a table of recent runs, and the list of offers that came in on the last run.
+button that re-pulls the whole live feed. **Nothing is ever deleted:** an offer that fell off
+the feed is stamped `archived_at` (**expired**), and one that reappears has the stamp cleared
+(`revived_at` records when). The subpage shows tiles (`+new`, expired, revived, in db, live,
+archived-total), a table of recent runs, and the list of offers that came in on the last run.
 Back in the cockpit, freshly-harvested offers get a **new** stats tile and a `NEW` badge. This
-replaces running `harvest.py` by hand, though the CLI still works. Because pruning rewrites the
-db, `offers_db.jsonl` is written atomically (temp file + swap) — it is no longer strictly
-append-only. Each run also appends to `data/harvest_log.jsonl` (the run history).
+replaces running `harvest.py` by hand, though the CLI still works. Because archiving stamps
+rows that are already stored, `offers_db.jsonl` is written atomically (temp file + swap) — it
+is no longer append-only. Each run also appends to `data/harvest_log.jsonl` (the run history).
+
+**Expired offers in the cockpit** are hidden by default. The `hide expired / + expired / only
+expired` selector in the header switches them in; shown ones are dimmed, dashed and carry an
+`EXPIRED` badge, and the `expired` stat tile always reports how many the db is holding. The
+selector also drives the category counts (chips and dropdown), so the numbers always describe
+the offers you can actually see.
 
 Three files, three owners, joined by offer URL:
 
 | file | who writes it | how |
 |---|---|---|
-| `data/offers_db.jsonl` | `harvest.py` / Re-harvest | append (CLI) or atomic rewrite when Re-harvest prunes stale rows |
+| `data/offers_db.jsonl` | `harvest.py` / Re-harvest | atomic rewrite (temp + swap): adds new rows, stamps `archived_at` on vanished ones |
 | `../src/applications_log.jsonl` | the Cowork applier | append-only (crash-safe) |
 | `data/manual_applied.json` | you, via the cockpit | mutable dict, toggle on/off |
 
@@ -71,7 +79,7 @@ Tuning loop for scoring: edit `prototype\keywords.py` → restart `app.py` → r
 |---|---|
 | `harvest.py` | Fetches the offers into `data/offers_db.jsonl`. |
 | `common.py` | Shared stdlib helpers (Chrome UA, UTF-8, stable offer id). |
-| `data/offers_db.jsonl` | Every offer ever seen; one line per unique job. Append-only. |
+| `data/offers_db.jsonl` | Every offer ever seen; one line per unique job. Rows are never deleted — gone-from-the-feed ones carry `archived_at`. |
 | `prototype/` | **The scorer + review page.** `keywords.py` is the file you tune. |
 
 ## Identity & dedup

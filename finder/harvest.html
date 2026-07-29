@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Harvest — pull &amp; prune</title>
+<title>Harvest — pull &amp; archive</title>
 <link rel="stylesheet" href="/static/app.css">
 <style>
   header{padding:14px 18px;border-bottom:1px solid var(--line)}
@@ -29,9 +29,9 @@
 </style></head><body>
 <header>
   <h1>Harvest</h1><a class="back" href="/">← back to cockpit</a>
-  <div class="sub">Re-collect the whole justjoin feed. Live offers stay; offers you already applied
-    to (bot or by hand) are kept as history; offers that dropped off the feed and were never
-    applied to are <b>pruned</b>.</div>
+  <div class="sub">Re-collect the whole justjoin feed. Nothing is ever deleted: offers that dropped
+    off the feed are marked <b>expired</b> (archived), and one that comes back is un-marked. The
+    cockpit hides expired offers unless you ask for them.</div>
   <div class="bar">
     <button class="run" id="run">↻ Re-harvest now</button>
     <span class="status" id="status"></span>
@@ -51,6 +51,8 @@
 const esc=s=>(s||'').replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
 const attr=s=>esc(s).replace(/"/g,'&quot;');
 const when=s=>(s||'').replace('T',' ').slice(0,16);
+// old runs (before offers were archived instead of pruned) logged the count as `removed`
+const archived=h=>(h.archived!=null?h.archived:(h.removed||0));
 
 function renderStats(last){
   const stats=document.getElementById('stats');
@@ -61,12 +63,16 @@ function renderStats(last){
   }
   const tile=(k,v,s,cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div>`
     +`<div class="v">${v}</div><div class="s">${s||''}</div></div>`;
+  // runs logged before archiving existed report `removed` instead of `archived`.
+  const arch=archived(last);
   stats.innerHTML=
-     tile('new',      '+'+last.added,  'added this run', last.added?'new':'')
-    +tile('removed',  '−'+last.removed,'stale, pruned',  last.removed?'rm':'')
-    +tile('in db',    last.total,      'offers stored')
-    +tile('live',     last.live,       'on the feed now','hl')
-    +tile('history',  last.kept_stale!=null?last.kept_stale:(last.total-last.live), 'stale but applied');
+     tile('new',      '+'+last.added, 'added this run', last.added?'new':'')
+    +tile('expired',  arch,           'fell off the feed', arch?'rm':'')
+    +tile('revived',  last.revived||0,'came back', last.revived?'ok':'')
+    +tile('in db',    last.total,     'offers stored')
+    +tile('live',     last.live,      'on the feed now','hl')
+    +tile('archived', last.archived_total!=null?last.archived_total:(last.total-last.live),
+                                      'expired, kept as history');
   w.textContent='last run: '+when(last.at);
 }
 
@@ -74,12 +80,13 @@ function renderHistory(history){
   const el=document.getElementById('history');
   if(!history||!history.length){ el.innerHTML='<div class="empty">No runs yet.</div>'; return; }
   el.innerHTML=`<table><thead><tr>
-      <th>when</th><th class="num">new</th><th class="num">removed</th>
+      <th>when</th><th class="num">new</th><th class="num">expired</th><th class="num">revived</th>
       <th class="num">in db</th><th class="num">live</th></tr></thead><tbody>`
     +history.map(h=>`<tr>
         <td>${esc(when(h.at))}</td>
         <td class="num pos">+${h.added}</td>
-        <td class="num neg">−${h.removed}</td>
+        <td class="num neg">${archived(h)}</td>
+        <td class="num">${h.revived||0}</td>
         <td class="num">${h.total}</td>
         <td class="num">${h.live}</td></tr>`).join('')
     +`</tbody></table>`;
@@ -108,8 +115,8 @@ async function loadStatus(){
 
 document.getElementById('run').addEventListener('click',async()=>{
   if(!confirm('Re-collect every offer from justjoin?\n\n'
-            +'Stale offers you never applied to will be REMOVED from the db. '
-            +'Offers you already applied to (bot or by hand) are kept as history.')) return;
+            +'Offers that fell off the feed are marked EXPIRED, not deleted — the cockpit '
+            +'hides them until you switch the expired filter on.')) return;
   const b=document.getElementById('run');
   const st=document.getElementById('status');
   b.disabled=true; b.textContent='↻ harvesting…';
@@ -119,7 +126,8 @@ document.getElementById('run').addEventListener('click',async()=>{
     if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json();
     await loadStatus();
-    st.className='status ok'; st.textContent=`✓ done — +${d.added} new, −${d.removed} removed`;
+    st.className='status ok';
+    st.textContent=`✓ done — +${d.added} new, ${d.archived} expired, ${d.revived} revived`;
   }catch(err){
     st.className='status err'; st.textContent='✗ harvest failed: '+err.message;
   }finally{

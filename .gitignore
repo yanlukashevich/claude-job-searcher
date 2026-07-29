@@ -7,3 +7,9 @@ __pycache__/
 
 # Generated review page (finder/prototype/browse.py regenerates it)
 finder/prototype/offers.html
+
+# Run output — personal application data, written by the Cowork applier every run.
+# Local-only: the audit trail and the current queue are state, not source.
+src/applications_log.jsonl
+src/todo_manual.md
+src/worklist.json
