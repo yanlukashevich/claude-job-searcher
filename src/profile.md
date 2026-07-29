@@ -69,7 +69,7 @@ public-institution security audit.
 - **Linux / networking:** bash automation, HPC cluster, PBS, conda, network admin (AP, DHCP, DNS, NAT, SSH), Cisco CCNA
 - **Databases:** Azure SQL, SQLite (EF Core), MongoDB
 - **Security:** defense-in-depth, threat modeling, Managed Identity + Key Vault, GDPR (privacy by design)
-- **Python / AI / data:** NumPy, SciPy, pandas, matplotlib, Jupyter, scikit-learn, LLM integration into applications · Psi4
+- **Python / AI / data:** NumPy, SciPy, pandas, matplotlib, Jupyter, scikit-learn, LLM integration into applications · Psi4 · systemy agentowe (orkiestrator + subagenty), MCP, prompt engineering
 - **Testing / processes:** TDD, xUnit, pytest, Jest, integration testing, Git / GitHub flow, code review, Scrum
 - **Embedded / IoT:** Raspberry Pi (Pi 4/5, Pico), MicroPython, GPIO, sensors (IMU, encoders), I2C, serial
 
@@ -105,6 +105,13 @@ https://github.com/yanlukashevich/Respirator-simulator
 - Przełożenie wymagań medycznych na specyfikację i architekturę — fizyczne stanowiska pacjenta (Raspberry Pi, pokrętła) i panel trenera; integracja komponentów (Node.js / NestJS, WebSocket, React, Raspberry Pi).
 - Zaprojektowanie sieci skalującej system z 2 do 15 stanowisk — zbudowanej od zera (Linux, AP / DHCP / DNS / NAT / SSH).
 
+### Claude Job Searcher — agentowa platforma do szukania pracy · 2026
+https://github.com/yanlukashevich/claude-job-searcher
+- System agentowy (LLM + MCP), który sam wypełnia aplikacje w realnej przeglądarce — 10 000+ przeanalizowanych ofert, ~95% formularzy poprawnie end-to-end, także na nieznanych ATS (Greenhouse, Lever, Workable).
+- Architektura wieloagentowa w duchu mikroserwisów — orkiestrator + jeden świeży subagent na ofertę, append-only audit log (JSONL); wąskie zadania pozwoliły zejść na tańszy model, a trening promptów obciął koszt tokenów ~2×.
+- Bezpieczeństwo z konstrukcji, nie z promptu — agent widzi tylko jeden zamontowany katalog, co skróciło prompty i wycięło całą klasę błędów; człowiek w pętli dla waznych decyzyj.
+- Kod tam, gdzie kod wygrywa — triage LLM zastąpiony deterministycznym scoringiem w Pythonie (harvester + FastAPI): zero tokenów, powtarzalny wynik.
+
 ## Education
 - Informatyka Stosowana, studia inżynierskie (inż.) — Uniwersytet Mikołaja Kopernika w Toruniu, 2022 – 2026
 
@@ -112,11 +119,12 @@ https://github.com/yanlukashevich/Respirator-simulator
 - Cisco CCNA
 
 ## Why-me material (raw points for free-text answers)
-- Dowożę od zera do produkcji — komercyjny system .NET 8 / React / Azure wdrożony solo w 3 miesiące dla klienta instytucjonalnego.
+- Dowożę od zera do produkcji — komercyjny system .NET 8 / React / Azure wdrożony w 3 miesiące dla klienta instytucjonalnego.
 - Full-stack end-to-end: frontend (React/TS), backend (ASP.NET Core / FastAPI), chmura (Azure), CI/CD (GitHub Actions, OIDC), płatności, bezpieczeństwo.
 - Zdany audyt bezpieczeństwa instytucji publicznej — realny threat modeling i hardening, nie teoria.
 - Zaplecze naukowe w Pythonie (2 lata, UMK) — biblioteka obliczeniowa dla całej grupy badawczej, automatyzacja klastra HPC.
 - Prowadzę zespoły i projekty do wyniku — 1. miejsce w konkursie, laureat, wejście w komercjalizację (spin-off).
+- Praktyczne AI — produkcyjny system wieloagentowy (LLM + MCP) z izolacją kontekstu, mierzonym kosztem tokenów i audytowalnym logiem decyzji.
 - Doprowadzam rzeczy do końca niezależnie od bariery: technicznej, biznesowej czy formalnej.
 
 ## What I'm looking for / motivation (canonical answers)

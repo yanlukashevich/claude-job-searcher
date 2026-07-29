@@ -1,50 +1,72 @@
 [
-    {
-        "url":  "https://justjoin.it/job-offer/randlab--net-backend-developer-k-m-n--warszawa-net",
-        "title":  ".NET Backend Developer (k/m/n)",
-        "company":  "Randlab",
-        "location":  "Warszawa",
-        "stack":  "dotnet",
-        "status":  "pending"
-    },
-    {
-        "url":  "https://justjoin.it/job-offer/symfonia-inzynier-inzynierka-oprogramowania-warszawa-net",
-        "title":  "Inżynier/Inżynierka Oprogramowania",
-        "company":  "Symfonia",
-        "location":  "Warszawa",
-        "stack":  "dotnet",
-        "status":  "pending"
-    },
-    {
-        "url":  "https://justjoin.it/job-offer/nexio-management--net-sharepoint-developer-k-m-x--warszawa-net-9de30c24",
-        "title":  ".NET SharePoint Developer (k/m/x)",
-        "company":  "Nexio Management",
-        "location":  "Warszawa",
-        "stack":  "dotnet",
-        "status":  "pending"
-    },
-    {
-        "url":  "https://justjoin.it/job-offer/antal-full-stack-developer-c-azure-ai-llm--warszawa-net",
-        "title":  "Full Stack Developer (C#, Azure, AI/LLM)",
-        "company":  "Antal",
-        "location":  "Warszawa",
-        "stack":  "dotnet",
-        "status":  "pending"
-    },
-    {
-        "url":  "https://justjoin.it/job-offer/rits-professional-services--net-developer-warszawa-net-d6bc22f0",
-        "title":  ".NET Developer",
-        "company":  "RITS Professional Services",
-        "location":  "Warszawa",
-        "stack":  "dotnet",
-        "status":  "pending"
-    },
-    {
-        "url":  "https://justjoin.it/job-offer/credit-agricole-bank-polska-s-a--specjalistka-projektantka-specjalista-projektant-robotyzacji-procesow-wroclaw-net",
-        "title":  "Specjalistka/Specjalista Projektant Robotyzacji Procesów",
-        "company":  "Credit Agricole Bank Polska S.A.",
-        "location":  "Wrocław",
-        "stack":  "dotnet",
-        "status":  "pending"
-    }
+  {
+    "url": "https://justjoin.it/job-offer/b-right-solutions-engineer-ai-automation--krakow-ai-064cac9c",
+    "title": "Solutions Engineer (AI & Automation)",
+    "company": "B:RIGHT",
+    "location": "Kraków",
+    "stack": "universal",
+    "apply_method": "external",
+    "apply_url": "https://b-right.recruitify.ai/job/ae63007f-0d33-49d2-994f-88a57ded6620",
+    "status": "pending"
+  },
+  {
+    "url": "https://justjoin.it/job-offer/tauron-obsluga-klienta-sp-z-o-o---net-developer-m-f--wroclaw-net",
+    "title": ".NET Developer (m/f)",
+    "company": "TAURON Obsługa Klienta Sp. z o.o.",
+    "location": "Katowice, Kraków, Wrocław",
+    "stack": "dotnet",
+    "apply_method": "external",
+    "apply_url": "https://aplikuj.hrlink.pl/aplikacja/Developer-NET-m-f/18227-18342-25-be1-4230.html",
+    "status": "pending"
+  },
+  {
+    "url": "https://justjoin.it/job-offer/polskie-sieci-elektroenergetyczne-s-a--specjalista-ds-ds-rozwoju-oprogramowania---python-backend-k-m-n--warszawa-python",
+    "title": "Specjalista ds. ds. rozwoju oprogramowania - Python Backend (k/m/n)",
+    "company": "Polskie Sieci Elektroenergetyczne S.A.",
+    "location": "Warszawa",
+    "stack": "python",
+    "apply_method": "external",
+    "apply_url": "https://system.erecruiter.pl/FormTemplates/RecruitmentForm.aspx?WebID=ad465b98b8dd4e719694908a9a7a2809",
+    "status": "pending"
+  },
+  {
+    "url": "https://justjoin.it/job-offer/yard-corporate-junior-python-developer-warsaw-python",
+    "title": "Junior Python Developer",
+    "company": "Yard Corporate",
+    "location": "Warsaw",
+    "stack": "python",
+    "apply_method": "form",
+    "apply_url": "",
+    "status": "pending"
+  },
+  {
+    "url": "https://justjoin.it/job-offer/h2b-group-react-python-developer-geo-gis--gdansk-javascript",
+    "title": "React + Python Developer (Geo/GIS)",
+    "company": "H2B Group",
+    "location": "Gdańsk",
+    "stack": "universal",
+    "apply_method": "external",
+    "apply_url": "https://system.erecruiter.pl/FormTemplates/RecruitmentForm.aspx?WebID=b5a008188816407ea7fdb63033a54e94",
+    "status": "pending"
+  },
+  {
+    "url": "https://justjoin.it/job-offer/alter-gpu-center-junior-backend-developer-poland-remote--python",
+    "title": "Junior Backend Developer",
+    "company": "ALTER GPU CENTER",
+    "location": "Poland (Remote)",
+    "stack": "python",
+    "apply_method": "form",
+    "apply_url": "",
+    "status": "pending"
+  },
+  {
+    "url": "https://justjoin.it/job-offer/asseco-poland-s-a--programista-ai-m-k-os--bydgoszcz-ai",
+    "title": "Programista AI (m/k/os.)",
+    "company": "Asseco Poland S.A.",
+    "location": "Bydgoszcz",
+    "stack": "universal",
+    "apply_method": "external",
+    "apply_url": "",
+    "status": "pending"
+  }
 ]

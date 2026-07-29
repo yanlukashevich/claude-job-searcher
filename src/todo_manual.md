@@ -24,3 +24,12 @@ Format:
 - [ ] Fujitsu Poland Sp. z o.o. — Software Developer with Python, Bash & Linux — https://justjoin.it/job-offer/fujitsu-poland-sp-z-o-o--software-developer-with-python-bash-linux-lodz-python
       reason: register
       note: Apply → Fujitsu's own careers site (jobs.global.fujitsu.com) → "Apply now" hands off to Fujitsu's SAP SuccessFactors portal (career50.sapsf.com); its only entry point is Sign In / "Don't have an account yet?" — no guest-apply path. English form → python EN CV.
+- [ ] Data Octopus — Frontend Developer (React / TypeScript) — https://justjoin.it/job-offer/data-octopus-frontend-developer-react-typescript--krakow-javascript
+      reason: register
+      note: justjoin.it internal Apply modal, this session not logged in (top nav shows "Log in"). Form has no pre-filled profile card; its only consent checkbox literally reads "I'm creating an account, I accept the Terms of Service and Privacy Policy" and is the sole way to accept the required ToS — ticking it creates a new justjoin.it account. No apply_url/external ATS exists for this offer, so there is no alternative path. Stopped before touching any fields.
+- [ ] Capgemini Polska — Full Stack Developer (Node.js/React) — https://justjoin.it/job-offer/capgemini-polska-full-stack-developer-node-js-react--krakow-ai
+      reason: dead-link
+      note: justjoin Apply (top button, ref-click worked) opened a new tab to Capgemini's own careers site (careers.capgemini.com/job/Warszawa-Full-Stack-Developer-.../1393419733/) which reads "Sorry, this position has been filled." — the justjoin listing outlived the employer's own posting.
+- [ ] CodeTwo - HRejterzy — Junior Developer ASP.NET — https://justjoin.it/job-offer/codetwo---hrejterzy-junior-developer-asp-net-jelenia-gora-net-399830d1
+      reason: dead-link
+      note: Apply hand-off lands on codetwo.recruitee.com/o/programista-developer-c-lub-aspnet-2-3 which returns a persistent HTTP 500 (retried once, same result); no form ever appears.

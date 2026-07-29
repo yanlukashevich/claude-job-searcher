@@ -61,6 +61,13 @@ Give each subagent this task:
 >
 > Run mode: `<review|auto>`   (review = fill, then STOP before Submit; auto = fill, then Submit)
 >
+> Browser tab: subagents share the orchestrator's Chrome tab group, so `tabs_context_mcp`'s
+> `createIfEmpty` will NOT hand you a fresh tab once earlier offers are running — it only
+> creates one when the group is truly empty. Call `tabs_context_mcp` to see what's there, then
+> always open your OWN new tab with `tabs_create_mcp` for this offer. Never navigate a tab that
+> already shows another offer's staged, unsubmitted form. Never close any tab when you finish —
+> leave every staged application open so the user can review and submit it themselves.
+>
 > The one offer to handle:
 > `<the offer object from worklist.json, verbatim>`
 >
