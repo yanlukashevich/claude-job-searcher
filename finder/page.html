@@ -54,6 +54,10 @@
   .markbtn.on{background:var(--warn);border-color:var(--warn);color:#111;font-weight:600}
   .newbadge{font-size:10px;font-weight:700;letter-spacing:.5px;background:#3fae5f;color:#fff;
     border-radius:8px;padding:0 6px;text-transform:uppercase}
+  .srclinks{margin:8px 0 0;display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
+  .srclinks a{color:var(--accent);text-decoration:none}
+  .srclinks a:hover{text-decoration:underline}
+  .srclinks .dead{color:var(--dim);text-decoration:line-through}
   /* category quick-filter chips: a few big categories + a "rest" catch-all */
   .catbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:2px 0 12px}
   .catchip{background:var(--card);border:1px solid var(--line);color:var(--fg);
@@ -142,7 +146,7 @@
       <option value="co1">hide companies I applied to</option>
       <option value="co2">hide companies I applied 2+</option>
     </select>
-    <select id="expired" title="Expired = the offer dropped off the justjoin feed on a later harvest. It stays in the db as history.">
+    <select id="expired" title="Expired = the offer dropped off every feed that carried it. It stays in the db as history.">
       <option value="hide">hide expired</option>
       <option value="show">+ expired</option>
       <option value="only">only expired</option>
@@ -179,6 +183,33 @@ let HICOUNTS={};                  // category -> count of high-scoring offers (d
 
 const esc=s=>(s||'').replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
 const attr=s=>esc(s).replace(/"/g,'&quot;');
+// An offer is identified by title+company without the portal, so one posted on both collapses
+// into a single row carrying both links — "jp" is that, not a duplicate.
+const SITENAME={justjoin:'justjoin.it', pracuj:'pracuj.pl'};
+function siteTitle(o){
+  const names=(o.sources||[]).map(s=>SITENAME[s.site]||s.site);
+  return names.length>1 ? 'on both portals: '+names.join(' + ') : 'on '+(names[0]||'?');
+}
+function srcLinks(o){
+  const ss=(o.sources||[]).filter(s=>s.url);
+  if(ss.length<2) return '';                       // the title already links the only source
+  // One chip per PORTAL, not per link. A portal can hold several links to one job (a re-post
+  // under a new slug, one posting per city); the row keeps them all so an application filed
+  // through any of them still counts, but listing five chips would just bury the other portal.
+  const bySite=new Map();
+  for(const s of ss){ if(!bySite.has(s.site)) bySite.set(s.site,[]); bySite.get(s.site).push(s); }
+  if(bySite.size<2 && ss.length<2) return '';
+  const chips=[];
+  for(const [site,list] of bySite){
+    const s=list.find(x=>!x.archived_at)||list[0];
+    const extra=list.length>1?` +${list.length-1}`:'';
+    const tip=s.archived_at ? 'gone from this feed since '+s.archived_at.slice(0,10) : 'live';
+    chips.push(`<a class="${s.archived_at?'dead':''}" href="${attr(s.url)}" target="_blank"`
+      +` title="${attr(tip)}${list.length>1?` — ${list.length} postings of this job here`:''}"`
+      +`>${esc(SITENAME[site]||site)}${extra} ↗</a>`);
+  }
+  return '<div class="srclinks">'+chips.join('')+'</div>';
+}
 function whyHtml(w){
   return esc(w).replace(/\+[^−]+/g,m=>'<span class="pos">'+m+'</span>')
                .replace(/−.+$/,m=>'<span class="neg">'+m+'</span>');
@@ -323,13 +354,14 @@ function offerLi(o){
   const title=o.url?`<a class="ttl" href="${attr(o.url)}" target="_blank" onclick="event.stopPropagation()">${esc(o.title)}</a>`
                    :`<span class="ttl">${esc(o.title)}</span>`;
   const newb=o.is_new?'<span class="newbadge">new</span>':'';
+  const site=o.sites?`<span class="site s-${o.sites}" title="${attr(siteTitle(o))}">${esc(o.sites)}</span>`:'';
   const expb=o.archived
     ?`<span class="expbadge" title="off the feed since ${attr((o.archived_at||'').slice(0,10))}">expired</span>`:'';
   return `<li class="of lb${o.bucket}${applied?' applied':''}${o.archived?' expired':''}" data-u="${attr(o.url)}">
     <div class="row">
       ${checkbox}
       <span class="score">${o.score>0?'+':''}${o.score}</span>${o.score_override?'<span class="ovr" title="manual score">✎</span>':''}
-      ${title} ${newb} ${expb} ${meta} ${pill} ${mark}
+      ${title} ${site} ${newb} ${expb} ${meta} ${pill} ${mark}
       <span class="caret">▸</span>
     </div>
     <div class="detail">${detailHtml(o)}</div>
@@ -357,10 +389,11 @@ function applyPrompt(o){
 
 function detailHtml(o){
   let h='';
-  if(o.archived) h+=`<div class="expnote">Expired — gone from the justjoin feed since the harvest of
+  if(o.archived) h+=`<div class="expnote">Expired — gone from every feed that carried it, since the harvest of
     ${esc((o.archived_at||'').replace('T',' ').slice(0,16))}. Kept as history; the link is probably dead.</div>`;
   h+=`<div class="skills">${esc(o.skills.join(' · '))||'—'}</div>`;
   h+=`<div class="why">${whyHtml(o.why)}</div>`;
+  h+=srcLinks(o);
   const a=o.application;
   if(a){
     const answers=(a.composed_answers||[]).filter(Boolean);

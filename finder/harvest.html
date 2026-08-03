@@ -26,12 +26,17 @@
   a.ttl:hover{border-bottom-style:solid}
   .co{color:var(--dim)}
   .more{color:var(--dim);font-size:12px;padding:8px 4px}
+  .part{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+    border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:0 5px;
+    margin-left:6px;cursor:help}
 </style></head><body>
 <header>
   <h1>Harvest</h1><a class="back" href="/">← back to cockpit</a>
-  <div class="sub">Re-collect the whole justjoin feed. Nothing is ever deleted: offers that dropped
-    off the feed are marked <b>expired</b> (archived), and one that comes back is un-marked. The
-    cockpit hides expired offers unless you ask for them.</div>
+  <div class="sub">Re-collect both feeds — <b>justjoin.it</b> and <b>pracuj.pl</b> — in one run.
+    Nothing is ever deleted: an offer that dropped off a feed is marked <b>expired</b> (archived)
+    on that portal, and only counts as expired once <i>every</i> portal carrying it has dropped
+    it. One that comes back is un-marked. The cockpit hides expired offers unless you ask for
+    them.</div>
   <div class="bar">
     <button class="run" id="run">↻ Re-harvest now</button>
     <span class="status" id="status"></span>
@@ -53,6 +58,11 @@ const attr=s=>esc(s).replace(/"/g,'&quot;');
 const when=s=>(s||'').replace('T',' ').slice(0,16);
 // old runs (before offers were archived instead of pruned) logged the count as `removed`
 const archived=h=>(h.archived!=null?h.archived:(h.removed||0));
+// A run that swept one portal only (a CLI harvest.py / harvest_pracuj.py) is still a real run,
+// but its live/expired columns speak for that feed alone — unlabelled, its `live` reads like the
+// db just lost half its offers.
+const part=h=>h.partial?' <span class="part" title="one portal only — the live and expired'
+  +' columns describe that feed, not the whole database">partial</span>':'';
 
 function renderStats(last){
   const stats=document.getElementById('stats');
@@ -65,15 +75,18 @@ function renderStats(last){
     +`<div class="v">${v}</div><div class="s">${s||''}</div></div>`;
   // runs logged before archiving existed report `removed` instead of `archived`.
   const arch=archived(last);
+  // runs logged before pracuj existed have no per-site breakdown; they were justjoin-only.
+  const sites=last.sites||[{site:'justjoin', live:last.live, added:last.added}];
   stats.innerHTML=
      tile('new',      '+'+last.added, 'added this run', last.added?'new':'')
-    +tile('expired',  arch,           'fell off the feed', arch?'rm':'')
+    +tile('expired',  arch,           'fell off every feed', arch?'rm':'')
     +tile('revived',  last.revived||0,'came back', last.revived?'ok':'')
     +tile('in db',    last.total,     'offers stored')
-    +tile('live',     last.live,      'on the feed now','hl')
+    +tile('live',     last.live,      sites.map(s=>`${s.site} ${s.live}`).join(' · '),'hl')
     +tile('archived', last.archived_total!=null?last.archived_total:(last.total-last.live),
-                                      'expired, kept as history');
-  w.textContent='last run: '+when(last.at);
+                                      'expired, kept as history')
+    +(last.linked?tile('on both',last.linked,'same job, two portals'):'');
+  w.innerHTML='last run: '+esc(when(last.at))+part(last);
 }
 
 function renderHistory(history){
@@ -83,7 +96,7 @@ function renderHistory(history){
       <th>when</th><th class="num">new</th><th class="num">expired</th><th class="num">revived</th>
       <th class="num">in db</th><th class="num">live</th></tr></thead><tbody>`
     +history.map(h=>`<tr>
-        <td>${esc(when(h.at))}</td>
+        <td>${esc(when(h.at))}${part(h)}</td>
         <td class="num pos">+${h.added}</td>
         <td class="num neg">${archived(h)}</td>
         <td class="num">${h.revived||0}</td>
@@ -100,6 +113,7 @@ function renderNew(offers){
       <span class="score">${o.score>0?'+':''}${o.score}</span>
       ${o.url?`<a class="ttl" href="${attr(o.url)}" target="_blank">${esc(o.title)}</a>`:`<span class="ttl">${esc(o.title)}</span>`}
       <span class="co">${esc(o.company)}</span>
+      ${o.sites?`<span class="site s-${o.sites}">${esc(o.sites)}</span>`:''}
       <span class="badge">${esc(o.category)}</span>
       <span class="badge">${esc(o.bucket_name)}</span>
     </li>`).join('')+'</ul>'
@@ -114,13 +128,13 @@ async function loadStatus(){
 }
 
 document.getElementById('run').addEventListener('click',async()=>{
-  if(!confirm('Re-collect every offer from justjoin?\n\n'
-            +'Offers that fell off the feed are marked EXPIRED, not deleted — the cockpit '
-            +'hides them until you switch the expired filter on.')) return;
+  if(!confirm('Re-collect every offer from justjoin.it AND pracuj.pl?\n\n'
+            +'Takes a couple of minutes. Offers that fell off a feed are marked EXPIRED, not '
+            +'deleted — the cockpit hides them until you switch the expired filter on.')) return;
   const b=document.getElementById('run');
   const st=document.getElementById('status');
   b.disabled=true; b.textContent='↻ harvesting…';
-  st.className='status'; st.textContent='fetching the whole feed — this takes a moment…';
+  st.className='status'; st.textContent='fetching both feeds — this takes a couple of minutes…';
   try{
     const r=await fetch('/api/harvest',{method:'POST'});
     if(!r.ok) throw new Error('HTTP '+r.status);

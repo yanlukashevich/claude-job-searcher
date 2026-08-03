@@ -15,14 +15,21 @@ Usage:
 """
 import argparse
 import datetime
+import sys
 import time
 
-from common import (OFFERS_DB, get_json, offer_id, read_jsonl, salary_str,
-                    write_jsonl)
+from common import (OFFERS_DB, clean_text, get_json, log_run, merge, offer_id, read_jsonl,
+                    salary_str, union_sources, write_jsonl)
 
+SITE = "justjoin"
 LIST_URL = ("https://justjoin.it/api/candidate-api/offers"
             "?experienceLevels=mid&experienceLevels=junior"
             "&sortBy=publishedAt&orderBy=descending")
+
+# A full harvest is what licenses archiving, so a full harvest that comes back near-empty
+# would stamp `archived_at` on the whole db while printing a perfectly normal summary. The
+# feed has never been below ~3000; anything under this is a broken fetch, not a dead market.
+MIN_FULL = 1500
 
 
 def fetch_rows(days):
@@ -48,19 +55,25 @@ def fetch_rows(days):
 
 
 def collapse(rows):
-    """One record per title+company; union the cities of every collapsed copy."""
+    """One record per title+company; union the cities and links of every collapsed copy."""
     by_id = {}
     for r in rows:
-        oid = offer_id(r["title"], r["companyName"])
+        title, company = clean_text(r["title"]), clean_text(r["companyName"])
+        oid = offer_id(title, company)
         cities = [l["city"] for l in (r.get("locations") or [])] or [r.get("city", "")]
+        src = {"site": SITE, "slug": r["slug"],
+               "url": f"https://justjoin.it/job-offer/{r['slug']}"}
         if oid in by_id:
             o = by_id[oid]
             o["cities"] = sorted(set(o["cities"]) | set(cities))
+            # not only per-city copies land here: two spellings of one title collapse too, and
+            # those are separate postings with separate apply links. Keep both.
+            union_sources(o, [src])
             continue
         by_id[oid] = {
             "id": oid,
-            "title": r["title"],
-            "company": r["companyName"],
+            "title": title,
+            "company": company,
             "category": r["category"]["key"],
             "level": r["experienceLevel"],
             "skills": [s["name"] for s in (r.get("requiredSkills") or [])],
@@ -71,8 +84,7 @@ def collapse(rows):
             "apply_url": r.get("applyUrl"),
             "published": r.get("publishedAt"),
             "first_seen": datetime.date.today().isoformat(),
-            "sources": [{"site": "justjoin", "slug": r["slug"],
-                         "url": f"https://justjoin.it/job-offer/{r['slug']}"}],
+            "sources": [src],
         }
     return by_id
 
@@ -80,38 +92,11 @@ def collapse(rows):
 def fetch_fresh(days=0):
     """The whole harvest as {id: offer}, ready to merge. Used by main() and by the
     cockpit's Re-harvest button (finder/app.py) so both share one code path."""
-    return collapse(fetch_rows(days))
-
-
-def merge(existing, fresh, at, archive_missing=True):
-    """Fold a fresh harvest into the stored rows. Returns (rows, summary).
-
-    Nothing is ever dropped: a stored offer that is missing from the feed gets `archived_at`
-    stamped, and one that reappears has it cleared (with `revived_at` for the record). Only a
-    FULL harvest can tell "gone" from "not in this slice", so a --days run passes
-    archive_missing=False and merely adds.
-    """
-    by_id = {o["id"]: o for o in existing}
-    added = revived = archived = 0
-    for oid, o in fresh.items():
-        cur = by_id.get(oid)
-        if cur is None:
-            o["added_at"] = at
-            by_id[oid] = o
-            added += 1
-        elif cur.pop("archived_at", None):
-            cur["revived_at"] = at
-            revived += 1
-    if archive_missing:
-        for oid, o in by_id.items():
-            if oid not in fresh and not o.get("archived_at"):
-                o["archived_at"] = at
-                archived += 1
-    rows = list(by_id.values())
-    summary = {"at": at, "added": added, "archived": archived, "revived": revived,
-               "live": len(fresh), "total": len(rows),
-               "archived_total": sum(1 for o in rows if o.get("archived_at"))}
-    return rows, summary
+    fresh = collapse(fetch_rows(days))
+    if not days and len(fresh) < MIN_FULL:
+        sys.exit(f"FATAL: full harvest returned only {len(fresh)} offers (expected >{MIN_FULL}). "
+                 f"Refusing to merge -- archiving on a broken fetch would expire the whole db.")
+    return fresh
 
 
 def main():
@@ -120,18 +105,20 @@ def main():
                     help="only offers published in the last N days (0 = everything)")
     args = ap.parse_args()
 
-    rows = fetch_rows(args.days)
-    fresh = collapse(rows)
-    print(f"fetched {len(rows)} rows -> {len(fresh)} unique offers")
+    fresh = fetch_fresh(args.days)
+    print(f"justjoin: {len(fresh)} unique offers")
 
     at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    merged, s = merge(read_jsonl(OFFERS_DB), fresh, at, archive_missing=not args.days)
+    merged, s = merge(read_jsonl(OFFERS_DB), [(SITE, fresh)], at,
+                      archive_missing=not args.days)
     write_jsonl(OFFERS_DB, merged)
-    print(f"offers_db: +{s['added']} new, {s['archived']} archived, {s['revived']} revived, "
+    log_run(s)
+    print(f"offers_db: +{s['added']} new, {s['linked']} also on another portal, "
+          f"{s['archived']} archived, {s['revived']} revived, "
           f"{s['total']} total ({s['archived_total']} archived)")
     if args.days:
         print("(--days is a partial feed: nothing archived)")
-    print("next: python finder/app.py")
+    print("next: python finder/harvest_pracuj.py, then python finder/app.py")
 
 
 if __name__ == "__main__":

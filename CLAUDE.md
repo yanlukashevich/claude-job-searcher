@@ -5,7 +5,7 @@ the design; it is the source of truth.
 
 ## What this is
 
-An **auto job applier**: it applies to jobs on justjoin.it (later pracuj.pl) on behalf of Yan
+An **auto job applier**: it applies to jobs on justjoin.it and pracuj.pl on behalf of Yan
 Lukashevich by driving his real, logged-in Chrome. There is almost no conventional code — the
 markdown files under `src/` *are* the program. Claude Code is the runtime, Claude-in-Chrome
 (MCP) is the browser engine. Currently **Phase 1** (justjoin.it internal-modal + external ATS,
@@ -61,9 +61,13 @@ Two steps. Offer selection is a human review in the finder; applying is the agen
 
 ```powershell
 # 1. FINDER - harvest, score, pick. See finder/README.md.
-python finder\harvest.py             # pull the justjoin feed into finder/data/offers_db.jsonl
-python finder\app.py                 # open http://127.0.0.1:8000, review, tick offers, "Write worklist"
+python finder\app.py                 # open http://127.0.0.1:8000, hit "↻ Harvest" (both portals),
+                                     # review, tick offers, "Write worklist"
 ```
+
+Both portals land in one `offers_db.jsonl`; the same job on both collapses to one row carrying
+both links, marked `jp` in the cockpit. The CLI harvesters (`harvest.py`, `harvest_pracuj.py`)
+re-pull a single portal when one needs debugging.
 
 The cockpit shows each offer's **applied** status (bot log + your manual marks), so you pick the
 unapplied ones; **Write worklist** drops them into `src\worklist.json`. There is no daily cap —
@@ -83,7 +87,7 @@ and driving one application.
 ## Data flow
 
 ```
-finder/harvest.py  →  finder/data/offers_db.jsonl   (every offer ever seen)
+finder/harvest.py + harvest_pracuj.py  →  finder/data/offers_db.jsonl   (every offer ever seen)
    → finder cockpit (app.py)  CODE: score + join applied-status; you pick
       → src/worklist.json
          → Cowork orchestrator  (trusts worklist, never re-filters)

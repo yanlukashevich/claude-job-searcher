@@ -29,15 +29,15 @@ HERE = Path(__file__).resolve().parent           # finder/
 sys.path.insert(0, str(HERE))                    # common
 sys.path.insert(0, str(HERE / "prototype"))      # scoring, keywords
 
-from common import ROOT, write_jsonl              # noqa: E402
+from common import (ROOT, HARVEST_LOG, LAST_HARVEST,   # noqa: E402
+                    canonical_names, log_run, merge, norm_company, write_jsonl)
 from scoring import classify, BUCKETS            # noqa: E402
-from harvest import fetch_fresh, merge            # noqa: E402
+import harvest                                    # noqa: E402  justjoin
+import harvest_pracuj                             # noqa: E402  pracuj.pl
 
 OFFERS_DB = HERE / "data" / "offers_db.jsonl"
 MANUAL = HERE / "data" / "manual_applied.json"
 MANUAL_SCORES = HERE / "data" / "manual_scores.json"   # url -> {score, reason, at} (your overrides)
-LAST_HARVEST = HERE / "data" / "last_harvest.json"
-HARVEST_LOG = HERE / "data" / "harvest_log.jsonl"   # one line per Re-harvest run (append-only)
 LOG = ROOT / "src" / "applications_log.jsonl"
 WORKLIST = ROOT / "src" / "worklist.json"
 PAGE = HERE / "page.html"
@@ -66,10 +66,39 @@ def _read_jsonl(path):
 
 
 def _url_of(offer):
-    for s in offer.get("sources", []):
+    """The offer's canonical link. An offer carried by both portals has two; prefer one whose
+    feed still lists it, so a job that expired on justjoin but is live on pracuj still links
+    somewhere you can actually apply."""
+    srcs = offer.get("sources", [])
+    for s in srcs:
+        if s.get("url") and not s.get("archived_at"):
+            return s["url"]
+    for s in srcs:
         if s.get("url"):
             return s["url"]
     return ""
+
+
+def _urls_of(offer):
+    """Every link this offer has ever had, canonical one first.
+
+    Applied-status is recorded per URL, and one offer can hold several: two portals, or one
+    portal that re-posted the job under a new slug. Asking about the canonical link alone
+    means an application filed through any of the others stops counting, and the offer comes
+    back up for triage as if it were untouched."""
+    urls = [s["url"] for s in offer.get("sources", []) if s.get("url")]
+    canon = _url_of(offer)
+    return [canon] + [u for u in urls if u != canon] if canon else urls
+
+
+SITE_LETTER = {"justjoin": "j", "pracuj": "p"}
+
+
+def _sites_of(offer):
+    """['justjoin','pracuj'] -> 'jp'. The per-offer portal marker in the cockpit; two letters
+    means the same job was found on both and the two records were collapsed into this one."""
+    return "".join(sorted(SITE_LETTER.get(s.get("site"), "?")
+                          for s in offer.get("sources", []) if s.get("site")))
 
 
 # Scoring 3500 offers is regex-heavy, but the db only changes when harvest.py runs. Cache the
@@ -82,14 +111,23 @@ def _scored_offers():
     mtime = OFFERS_DB.stat().st_mtime if OFFERS_DB.exists() else 0
     if _cache["mtime"] == mtime:
         return _cache["offers"]
+    rows = _read_jsonl(OFFERS_DB)
+    # One employer is spelled several ways across (and within) the portals. Group and label by
+    # the identity key's canonical spelling, or "Netia" and "NETIA S.A." head two groups.
+    display = canonical_names(rows)
     offers = []
-    for o in _read_jsonl(OFFERS_DB):
+    for o in rows:
         bucket, score, why = classify(o)
         cat = o.get("category", "?")
+        ckey = norm_company(o.get("company", ""))
         offers.append({
             "url": _url_of(o),
+            "urls": _urls_of(o),             # every link — what applied-status is joined on
+            "sites": _sites_of(o),           # 'j' / 'p' / 'jp' — which portals carry it
+            "sources": o.get("sources", []),  # both links, listed in the detail panel
             "title": o.get("title", ""),
-            "company": o.get("company", ""),
+            "company": display.get(ckey) or o.get("company", ""),
+            "company_key": ckey,
             "category": cat,
             "stack": STACK.get(cat, "universal"),
             "level": o.get("level", ""),
@@ -112,6 +150,23 @@ def _scored_offers():
         })
     _cache.update(mtime=mtime, offers=offers)
     return offers
+
+
+def _by_any_url():
+    """{any of an offer's URLs: the offer}. Every join onto the offer db goes through this --
+    a log line or a manual mark names the link it was filed under, which is not necessarily
+    the link the cockpit now shows."""
+    idx = {}
+    for o in _scored_offers():
+        for u in o["urls"]:
+            idx.setdefault(u, o)
+    return idx
+
+
+def _offer_urls(url):
+    """The sibling links of whatever offer owns `url` (just `url` if none does)."""
+    o = _by_any_url().get(url)
+    return o["urls"] if o else [url]
 
 
 def _bot_applications():
@@ -174,9 +229,10 @@ def api_offers():
         if sc:
             row["score"] = sc["score"]
         row["archived"] = bool(o.get("archived_at"))
-        app_row = bot.get(o["url"])
+        # Applied through ANY of the offer's links counts as applied. See _urls_of.
+        app_row = next((bot[u] for u in o["urls"] if u in bot), None)
         row["application"] = app_row               # full bot log line, or None
-        row["manual_at"] = manual.get(o["url"])    # iso string, or None
+        row["manual_at"] = next((manual[u] for u in o["urls"] if u in manual), None)
         if app_row:
             row["applied_by"] = "bot"
         elif row["manual_at"]:
@@ -193,19 +249,22 @@ def api_offers():
             "generated": datetime.now(timezone.utc).isoformat()}
 
 
+# Both portals. They are collected before anything is written, so a portal that fails takes
+# the whole run down instead of leaving the db half-updated — and, crucially, instead of
+# letting one site's silence archive the other site's offers.
+SITES = [("justjoin", harvest.fetch_fresh), ("pracuj", harvest_pracuj.fetch_fresh)]
+
+
 @app.post("/api/harvest")
 def api_harvest():
-    """Re-collect the whole justjoin feed and fold it in. Nothing is deleted: offers that fell
-    off the feed are stamped `archived_at` (expired) and offers that came back are un-stamped.
-    Returns the run summary and stamps last_harvest.json."""
+    """Re-collect both feeds and fold them in. Nothing is deleted: offers that fell off a feed
+    are stamped `archived_at` on that source, and an offer counts as expired only once every
+    portal carrying it has dropped it. Returns the run summary (per-site plus totals)."""
     at = datetime.now(timezone.utc).isoformat()
-    fresh = fetch_fresh(0)                                  # {id: offer} — full re-collect
-    merged, summary = merge(_read_jsonl(OFFERS_DB), fresh, at)
-    write_jsonl(OFFERS_DB, merged)
-    LAST_HARVEST.parent.mkdir(parents=True, exist_ok=True)
-    LAST_HARVEST.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    with HARVEST_LOG.open("a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps(summary, ensure_ascii=False) + "\n")
+    harvests = [(site, fetch()) for site, fetch in SITES]
+    rows, summary = merge(_read_jsonl(OFFERS_DB), harvests, at)
+    write_jsonl(OFFERS_DB, rows)
+    log_run(summary)
     return summary
 
 
@@ -222,6 +281,7 @@ def api_harvest_status():
             if o.get("added_at") == new_at:
                 new_offers.append({"title": o["title"], "company": o["company"],
                                    "url": o["url"], "category": o["category"],
+                                   "sites": o["sites"],
                                    "score": o["score"], "bucket_name": o["bucket_name"]})
         new_offers.sort(key=lambda x: -x["score"])
     return {"last": lh, "history": list(reversed(history))[:20], "new_offers": new_offers}
@@ -232,7 +292,7 @@ def api_history():
     """The application history: every attempt the bot logged (each log line is one event, so a
     retried URL shows every attempt), plus every offer you marked applied by hand. Joined back
     onto the offer db for title/company where the log line lacks them. Newest first."""
-    offers_by_url = {o["url"]: o for o in _scored_offers()}
+    offers_by_url = _by_any_url()
     events = []
 
     # Bot log — the full trail, one entry per line (not deduped; retries are real history).
@@ -284,10 +344,17 @@ class ManualBody(BaseModel):
 
 @app.post("/api/manual")
 def api_manual(body: ManualBody):
-    """Toggle a hand-applied mark for one offer URL."""
+    """Toggle a hand-applied mark for one offer.
+
+    Marks are stored per URL but the toggle is per OFFER: an offer carrying two links can hold
+    a mark on either, and unticking has to clear whichever one it is or the row stays applied
+    and the click looks broken."""
     manual = _manual()
-    if body.url in manual:
-        del manual[body.url]
+    urls = _offer_urls(body.url)
+    marked = [u for u in urls if u in manual]
+    if marked:
+        for u in marked:
+            del manual[u]
         at = None
     else:
         at = datetime.now(timezone.utc).isoformat()
@@ -321,7 +388,7 @@ class WorklistBody(BaseModel):
 @app.post("/api/worklist")
 def api_worklist(body: WorklistBody):
     """Write the picked offers to src/worklist.json in the shape the applier consumes."""
-    by_url = {o["url"]: o for o in _scored_offers()}
+    by_url = _by_any_url()
     items = []
     for u in body.urls:
         o = by_url.get(u)

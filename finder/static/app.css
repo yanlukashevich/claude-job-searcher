@@ -28,6 +28,12 @@ body{margin:0;background:var(--bg);color:var(--fg);
 
 /* generic bits */
 .badge{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px}
+/* which portal carries an offer: j = justjoin.it, p = pracuj.pl, jp = both (one collapsed row) */
+.site{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;border:1px solid var(--line);border-radius:8px;
+  padding:0 6px;color:var(--dim);cursor:help}
+.site.s-p{border-color:var(--warn);color:var(--warn)}
+.site.s-jp{border-color:var(--accent);color:var(--accent)}
 .empty{color:var(--dim);padding:24px 2px}
 .pos{color:var(--good-2)} .neg{color:var(--bad)}
 .back{color:var(--accent);text-decoration:none;font-size:12px;margin-left:12px}
