@@ -40,7 +40,8 @@ fine, they don't change mid-run. **Write** only with `mcp__remote-devices__devic
 ```
 open your OWN tab (§4)
  → navigate to the offer URL
- → get_page_text: confirm the offer, capture the description (§6 needs it)
+ → get_page_text: confirm the offer, capture the description (§6 and §7 need it; after the
+   Apply click you may no longer have it)
  → click Apply / "Aplikuj"  → "After the Apply click" below
  → classify: portal form | external ATS | custom | register-required | captcha | dead-link
  → portal form → read portal_quirks.md   |   external ATS → read ats_quirks.md
@@ -137,8 +138,12 @@ in `auto` stop now, in `review` fill the rest for the user and still report it b
 ## 6. Free-text & language
 
 Answer **each field in the language of the form**: Polish form → Polish, English form → English.
-Match its register (Polish recruitment defaults to polite formal unless the form is clearly
-casual). The CV language follows the same rule (§7).
+The CV language follows the same rule (§7).
+
+**One voice on every offer: polite, but not stiff.** Write to a person you respect and haven't
+met. **Never mirror the page's register.** A ceremonious job ad, or the boilerplate a portal
+pre-fills into the message box ("Szanowni Państwo, przesyłam swoją aplikację…"), is text to
+delete, not a style to copy — no "Szanowni Państwo", no "I am writing to express my interest".
 
 **Fill every free-text field, optional ones included** — employer message, "introduce yourself",
 motivation, cover letter, open questions. Write a note, not an essay:
@@ -146,11 +151,14 @@ motivation, cover letter, open questions. Write a note, not an essay:
 - **Optional field → exactly one short sentence. Required field → 1–2 short sentences. Hard
   cap.** Exception: when `profile.md` has a **canonical answer** matching the question, use it
   verbatim at its own length.
-- **Hook it to something specific in *this* offer's description** — the actual project, the
-  domain, or the one technology they lead with. That specificity is what makes it read as
-  written by a person rather than generated.
-- First person, plain, conversational. No buzzwords, no "I am writing to express my interest",
-  no tech-stack laundry list, no listing years of experience.
+- **Write about *this* offer's description and nothing else.** Name what in it interests him —
+  the actual project, the domain, the one technology they lead with — say he has worked with
+  that, and say he'd like to do this kind of project. That is the whole message, and its
+  specificity is what makes it read as written by a person rather than generated. Shape that
+  works: *"Zainteresowała mnie ta oferta, bo <konkret z opisu>. Pracowałem z <to samo z
+  profilu> przy <projekt> i chętnie zająłbym się takim projektem."*
+- First person, plain, conversational. No buzzwords, no tech-stack laundry list, no listing
+  years of experience.
 - Lead with the strongest **true** item; never add a year, a technology, or a certificate that
   isn't in `profile.md`. If the offer's framework isn't his, name the language or pattern he
   *does* have and stop — don't explain the gap, don't apologise for it.
@@ -158,9 +166,18 @@ motivation, cover letter, open questions. Write a note, not an essay:
 
 ## 7. CV selection
 
-Use the **CV variants** table in `profile.md`: map offer `stack` → variant (`python`→python,
-`dotnet`→dotnet, `cloud`/`devops`→cloud, anything else/mixed/unknown → `universal`), then pick
-`pl`/`en` by the form's language (§6), then upload that exact path.
+**You pick the variant from the offer itself**, using the description you already read in §3.
+Which technology do the requirements actually lean on — `python` · `dotnet` (C#, .NET) · `cloud`
+(AWS/Azure, Kubernetes, Terraform, CI/CD)? One clearly dominates → that variant. Two share the
+page, or none does (a generic backend/fullstack ad) → `universal`. Judge the weight of the
+requirements, not a single mention: a Python job that happens to run on Azure is still `python`.
+
+The worklist's `stack` is a hint, not an instruction — trust it when it names a technology,
+ignore it when it says `universal`. pracuj.pl labels **every** offer that way, its Python ones
+included.
+
+Then pick `pl`/`en` by the form's language (§6), take that variant's path from the **CV variants**
+table in `profile.md`, and upload it.
 
 A **portal's own form arrives with a CV already attached** — the portal stores one file under a
 generic name and the content behind it changes, so the attachment has been the wrong variant on

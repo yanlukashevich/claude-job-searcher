@@ -337,8 +337,8 @@ come back up.
 - **User stack + seniority** — .NET junior/mid; the finder's API query bakes this in.
 - **CV variants** — four stacks under `src/CV_PDF/` (PL + EN each); mapping in
   `applier_instructions.md`.
-- **Tone / default language** — decided: answer in the form's language, matching its register
-  (`applier_instructions.md` §6).
+- **Tone / default language** — decided: answer in the form's language, in one voice on every
+  offer (polite, not formal), never mirroring the page's register (`applier_instructions.md` §6).
 - **Recon** — justjoin.it *does* expose a JSON listings API (`docs/JUSTJOIN_API_NOTES.md`);
   the internal modal and external-ATS flows are handled per `src/applier_instructions.md`,
   `src/portal_quirks.md` and `src/ats_quirks.md`.

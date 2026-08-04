@@ -46,6 +46,9 @@ HISTORY_PAGE = HERE / "history.html"
 
 # offer category (finder taxonomy) -> CV variant stack (profile.md CV-variants table).
 # Anything not listed falls through to "universal", which is also the applier's default.
+# This is a HINT, not the decision: the applier picks the CV from the offer description it is
+# already reading (playbook §7). Only justjoin's categories are language-shaped, so every
+# pracuj offer lands on "universal" here -- including its Python and .NET ones.
 STACK = {"net": "dotnet", "python": "python", "devops": "cloud/devops"}
 
 app = FastAPI()
