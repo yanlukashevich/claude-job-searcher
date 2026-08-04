@@ -1,16 +1,17 @@
 # ATS quirks — recipes for forms we've already met
 
-Read this **only** when the Apply button hands you off to an external ATS
-(`applier_instructions.md` §6). Each recipe below was measured on a real run. Find your ATS,
-follow it, ignore the rest. If your ATS isn't here, the principles in §6 are enough — and add
-a recipe here afterwards if you learned something that isn't derivable from them.
+Read this **only** when the Apply click handed you off to an external ATS
+(`applier_instructions.md` §3); on a portal's own form read `portal_quirks.md` instead. Each
+recipe below was measured on a real run. Find your ATS, follow it, ignore the rest. If your ATS
+isn't here, the rules in playbook §4–§7 are enough — and add a recipe here afterwards if you
+learned something that isn't derivable from them.
 
 ---
 
 ## eRecruiter (`form.erecruiter.pl`)
 
-Reached from justjoin.it via Apply → new tab. On the justjoin page the on-page Apply refs can
-be duds; the **top sticky "Apply" button** is the one that opens the ATS tab.
+Reached from a portal via Apply → new tab. On justjoin the on-page Apply refs can be duds;
+the **top sticky "Apply" button** is the one that opens the ATS tab.
 
 The form is Polish → answer in Polish, upload the PL CV.
 

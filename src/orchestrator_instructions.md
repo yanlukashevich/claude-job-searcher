@@ -9,8 +9,14 @@ it, you confirm it logged its outcome, and you move on.
 ## 0. Inputs / outputs
 
 - **In:** `worklist.json` (the offers to process) · a **mode** flag (`review` default, or `auto`).
-- **Per subagent:** `applier_instructions.md` (behavior) · `profile.md` (facts) · one offer · the mode.
-- **Out:** `applications_log.jsonl` gets exactly one line per offer. Blocked offers also land in `todo_manual.md`.
+- **Per subagent:** `applier_instructions.md` (behavior) · `profile.md` (facts) · one offer ·
+  the mode · **`<mount>`**, the absolute device path of this folder.
+- **Out:** `applications_log.jsonl` gets exactly one line per offer, **written by the subagent
+  that handled it**. Blocked offers also land in `todo_manual.md`.
+
+Resolve `<mount>` once, at the start, with `mcp__remote-devices__device_bash`:
+`ls -d /sessions/*/mnt/src`. Every file in this system lives there, on the user's machine —
+your own `Write`/`Edit`/`Bash` cannot reach it, so every write to it goes through `device_bash`.
 - Never edit `profile.md` or `worklist.json`.
 
 ## 1. `worklist.json` is already correct — do not re-derive it
@@ -31,13 +37,11 @@ for each offer, in order:
     spawn a FRESH subagent  (§3)
     wait for it to finish
     verify its outcome landed in applications_log.jsonl  (§5)
-    pause 5–10 seconds
 report  (§6)
 ```
 
 Strictly **sequential**. Never run two subagents at once: they would fight over the same
-Chrome tab, and two applications submitted in the same second is the single most bot-like
-thing this system could do.
+Chrome tab.
 
 ## 3. One fresh subagent per offer
 
@@ -59,57 +63,52 @@ Give each subagent this task:
 >   - `applier_instructions.md`  (your operating manual: behavior, rules, the loop, logging)
 >   - `profile.md`               (the sole source of truth for facts)
 >
+> Subagents share one Chrome tab group, so open your OWN tab for this offer (playbook §4).
+>
 > Run mode: `<review|auto>`   (review = fill, then STOP before Submit; auto = fill, then Submit)
 >
-> Browser tab: subagents share the orchestrator's Chrome tab group, so `tabs_context_mcp`'s
-> `createIfEmpty` will NOT hand you a fresh tab once earlier offers are running — it only
-> creates one when the group is truly empty. Call `tabs_context_mcp` to see what's there, then
-> always open your OWN new tab with `tabs_create_mcp` for this offer. Never navigate a tab that
-> already shows another offer's staged, unsubmitted form. Never close any tab when you finish —
-> leave every staged application open so the user can review and submit it themselves.
+> Project folder on the user's machine (`<mount>` in the playbook):
+> `<the resolved /sessions/…/mnt/src path>`
+> You log there yourself with `mcp__remote-devices__device_bash` — see §1/§10 of the playbook.
 >
 > The one offer to handle:
 > `<the offer object from worklist.json, verbatim>`
 >
-> Follow the playbook end to end, including appending your outcome to
-> `applications_log.jsonl` (and `todo_manual.md` if blocked). Then report back with the exact
-> JSON object you logged.
+> Follow the playbook end to end, including appending your own outcome line to
+> `applications_log.jsonl` (and `todo_manual.md` if blocked) and verifying it landed. Then
+> report back with the exact JSON object you logged, and say whether the append succeeded.
 
 Pass the **mode through unchanged**. In `review` mode a subagent must never click the final
 Submit — if one reports that it submitted anyway, stop the whole run and tell the user.
 
 ## 4. Writing files
 
-Append to `applications_log.jsonl` and `todo_manual.md` with the **file-editing tools, never a
-shell redirect** (`>>`, `tee`, `echo`). Your shell is a sandbox; a redirect may write somewhere
-that is silently discarded, leaving the audit trail empty. The file tools always land.
+**The subagent writes its own log line — do not collect lines and write them yourself.** Your
+only writes are the §5 fallback. When you do write, use the same mechanism the appliers use:
+one `mcp__remote-devices__device_bash` call appending to `<mount>/applications_log.jsonl` with
+a quoted heredoc (`cat >> … <<'EOF'`). Your own `Write`/`Edit`/`Bash` land in a sandbox the
+user never sees, so nothing written that way reaches the audit trail.
 
 ## 5. Verify each outcome, don't assume it
 
-After a subagent finishes, confirm the log actually grew: read the **last line** of
-`applications_log.jsonl` and check its `url` matches the offer just processed.
+After a subagent finishes, confirm the log actually grew: `device_bash` →
+`tail -n 1 <mount>/applications_log.jsonl` and check its `url` matches the offer just
+processed. Read the mount, never a staged/cached copy — a stale snapshot will show the line
+missing when it is in fact there.
 
 - **Match** → good, continue.
 - **No match / nothing appended** (the subagent crashed, ran out of context, or forgot) →
   write the line yourself from what the subagent reported, and set `notes` to say the
-  orchestrator wrote it as a fallback. Never let an offer pass without a log line: the log is
-  the anti-double-apply record, and a missing line means the next run applies twice.
+  orchestrator wrote it as a fallback. This is an exception, not the routine — if it fires
+  twice in a row, stop and tell the user the appliers can't write. Never let an offer pass
+  without a log line: the log is the anti-double-apply record, and a missing line means the
+  next run applies twice.
 - **Subagent errored before touching the page** → log it as `blocked` with
   `blocked_reason: "subagent-failure"` and keep going. One dead subagent is not a dead run.
 
 Read the last line only. Never load the whole log into context.
 
-## 6. Pacing
-
-Pause **5–10 seconds** between subagents. That is all.
-
-Longer jitter would be theatre: each application already takes anywhere from two to five
-minutes depending on the form and the free text composed, so the interval between submissions
-is deeply irregular before you add anything. What account-abuse detection actually scores is
-**sustained volume**, and volume is already bounded — in code — by the length of the worklist
-you were handed. Do not invent extra delays.
-
-## 7. Report back
+## 6. Report back
 
 When the queue is done, give the user a short table: company · apply-type · outcome · one-line
 note. Then:

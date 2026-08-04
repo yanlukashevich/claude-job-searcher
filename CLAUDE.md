@@ -26,7 +26,7 @@ claude_job_seracher/          <- never mounted; invisible to the agent
   trainer/                    <- prompt-optimization loop (its own Cowork mount)
   src/                        <- Cowork mounts THIS
     orchestrator_instructions.md   applier_instructions.md   profile.md
-    ats_quirks.md
+    portal_quirks.md   ats_quirks.md
     worklist.json  applications_log.jsonl  todo_manual.md  CV_PDF/
 ```
 
@@ -35,10 +35,13 @@ of reach, so nothing has to tell the orchestrator not to read them, and `CLAUDE.
 injected into every subagent. **Keep it that way** — a file moved into `src/` is a file the
 agent will find, and every extra token in there is paid once per subagent.
 
-`ats_quirks.md` is the pressure valve for that last rule. Per-ATS recipes are long, are needed
-on a minority of offers, and would otherwise be paid on every one — so they live in a file the
-applier is told to open **only** when Apply hands it off to an external ATS. Anything that is
-true of one vendor's form and not of forms in general belongs there, not in the playbook.
+`portal_quirks.md` and `ats_quirks.md` are the pressure valve for that last rule. Per-form
+recipes are long and each is needed on a minority of offers, so carrying them in the playbook
+would charge every offer for them. Instead every offer ends up on **exactly one** kind of form —
+the portal's own (justjoin modal, pracuj widget) or an external ATS — so the applier classifies
+first and opens **one** of the two files. Anything true of one vendor's form and not of forms in
+general belongs in one of them, not in the playbook. Keep them split for the same reason: merged,
+a portal offer would pay for Workday recipes it will never use.
 
 `applications_log.jsonl` is the exception. It is an *output*, so it must be inside the mount,
 and the orchestrator must read its last line to verify each outcome. That rule is conditional
@@ -117,6 +120,6 @@ rules, both learned the hard way:
 
 ## Detail lives in `src/`, not here
 
-The three "stop → manual" blockers, the anti-bot interaction model, the language rule, the
-CV-variant mapping and the logging schema are specified in `src/applier_instructions.md` §7,
-§6, §2, §5 and §9. Restating them here is how this file grew to 6 KB last time.
+The four "stop → manual" blockers, the anti-bot interaction model, the language rule, the
+CV-variant mapping and the logging schema are specified in `src/applier_instructions.md` §8,
+§4, §6, §7 and §10. Restating them here is how this file grew to 6 KB last time.
