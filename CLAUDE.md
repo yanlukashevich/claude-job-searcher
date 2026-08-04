@@ -107,8 +107,9 @@ only to verify each outcome.
 
 ## Editing the prompts
 
-The markdown in `src/` is the program, and its token count is paid once per subagent. Two
-rules, both learned the hard way:
+The markdown in `src/` is the program, and its token count is paid once per subagent. The full
+working note is `docs/PROMPT_EDITING.md` — hand it to a session that is about to edit a prompt.
+Two rules, both learned the hard way:
 
 - **Keep a line if removing it would change what the agent does; cut it if removing it would
   only change what the agent knows.** A warning the agent cannot act on is documentation — it

@@ -63,7 +63,7 @@ Give each subagent this task:
 >   - `applier_instructions.md`  (your operating manual: behavior, rules, the loop, logging)
 >   - `profile.md`               (the sole source of truth for facts)
 >
-> Subagents share one Chrome tab group, so open your OWN tab for this offer (playbook §4).
+> Subagents share one Chrome tab group — playbook §4 says which tab to use in your mode.
 >
 > Run mode: `<review|auto>`   (review = fill, then STOP before Submit; auto = fill, then Submit)
 >

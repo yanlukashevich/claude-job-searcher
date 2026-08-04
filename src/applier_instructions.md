@@ -38,7 +38,7 @@ fine, they don't change mid-run. **Write** only with `mcp__remote-devices__devic
 ## 3. The loop
 
 ```
-open your OWN tab (§4)
+open or reuse your tab (§4)
  → navigate to the offer URL
  → get_page_text: confirm the offer, capture the description (§6 and §7 need it; after the
    Apply click you may no longer have it)
@@ -77,11 +77,16 @@ and any typing on a CAPTCHA-guarded page — vision goes through Chrome's real i
 cannot understand from text.
 
 **Tabs.** Subagents share the orchestrator's tab group, so `tabs_context_mcp(createIfEmpty)`
-will *not* hand you a fresh tab. Call `tabs_context_mcp` once to see what's open, then open your
-**own** tab with `tabs_create_mcp` and run the whole offer there. Never navigate a tab that
-already shows another offer's staged form, and **never close a tab when you finish** — staged
-applications stay open for the user. Don't inventory the browser; `list_connected_browsers` only
-after a browser call has actually failed.
+will *not* hand you a fresh tab. Call `tabs_context_mcp` once to see what's open, then:
+- **`review`** → open your **own** tab with `tabs_create_mcp` and run the offer there; never
+  navigate a tab already showing another offer's staged form, and **never close a tab when you
+  finish** — the staged forms stay open for the user to submit by hand.
+- **`auto`** → a submitted offer leaves nothing to look at, so **reuse an open tab** instead
+  (`tabs_create_mcp` only if there is none), and close any extra tab an ATS hand-off spawned
+  once the submit is verified (§9).
+
+Don't inventory the browser; `list_connected_browsers` only after a browser call has actually
+failed.
 
 **Clicking.**
 - **Click by `ref`, not by coordinate:** `find` → `computer left_click ref=ref_N` auto-scrolls
@@ -115,8 +120,9 @@ in `auto` stop now, in `review` fill the rest for the user and still report it b
 
 - Name / email / phone → Personal (E.164 phone when a country code is wanted).
 - LinkedIn / GitHub / portfolio → Links.
-- **Salary** (monthly, PLN, gross): offer posted widełki with a lower bound inside
-  **10–15 tys. → answer that bound**; otherwise → the profile's monthly figure. Bare number
+- **Salary** (monthly, PLN, gross): read the offer's posted widełki — lower bound inside
+  **10–15 tys. → answer that lower bound**; upper bound inside **6–10 tys. → answer that upper
+  bound**; any other widełki, or none posted → the profile's monthly figure. Bare number
   only; netto-labelled or period-unspecified → the same figure **unchanged** (never convert
   netto↔gross); banded → the band holding it; per-hour → the profile's hourly rate. Any other
   shape → approximate from the profile figures — **salary never blocks**.
