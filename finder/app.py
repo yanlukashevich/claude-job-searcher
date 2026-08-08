@@ -11,7 +11,7 @@ The two write patterns are different on purpose. Automated runs append to the JS
 in a plain mutable dict you can toggle on and off -- you cannot un-append a JSONL line.
 
 Run:
-  python finder/app.py            # http://127.0.0.1:8000
+  python finder/app.py            # http://127.0.0.1:9000
 """
 import json
 import os
@@ -429,4 +429,4 @@ def history_page():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=9000)

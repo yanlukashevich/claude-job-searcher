@@ -64,6 +64,7 @@ Give each subagent this task:
 >   - `profile.md`               (the sole source of truth for facts)
 >
 > Subagents share one Chrome tab group — playbook §4 says which tab to use in your mode.
+> Use the **Windows** Chrome, device id `033fee26` — never the macOS one (`22ce25c0`).
 >
 > Run mode: `<review|auto>`   (review = fill, then STOP before Submit; auto = fill, then Submit)
 >
@@ -84,10 +85,19 @@ Submit — if one reports that it submitted anyway, stop the whole run and tell 
 ## 4. Writing files
 
 **The subagent writes its own log line — do not collect lines and write them yourself.** Your
-only writes are the §5 fallback. When you do write, use the same mechanism the appliers use:
-one `mcp__remote-devices__device_bash` call appending to `<mount>/applications_log.jsonl` with
-a quoted heredoc (`cat >> … <<'EOF'`). Your own `Write`/`Edit`/`Bash` land in a sandbox the
-user never sees, so nothing written that way reaches the audit trail.
+only writes are the §5 fallback. When you do write, use the same mechanism the appliers use —
+one `mcp__remote-devices__device_bash` call appending to `<mount>/applications_log.jsonl`, with
+the shell stamping the time and a quoted heredoc carrying the fields:
+
+```
+{ printf '{"timestamp":"%s",' "$(TZ=Europe/Warsaw date +%FT%T%:z)"; cat <<'EOF'
+"url":"…", …}
+EOF
+} >> <mount>/applications_log.jsonl
+```
+
+Never type a timestamp yourself. Your own `Write`/`Edit`/`Bash` land in a sandbox the user
+never sees, so nothing written that way reaches the audit trail.
 
 ## 5. Verify each outcome, don't assume it
 

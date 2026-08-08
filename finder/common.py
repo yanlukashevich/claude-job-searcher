@@ -25,7 +25,10 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
 # Windows console defaults to cp1250 and chokes on city names; never crash on a print.
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+# Under pythonw.exe (the scheduled worklist run) there is no console at all and stdout is None --
+# print() tolerates that, this line would not.
+if sys.stdout is not None:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def get_json(url):

@@ -64,7 +64,7 @@ Two steps. Offer selection is a human review in the finder; applying is the agen
 
 ```powershell
 # 1. FINDER - harvest, score, pick. See finder/README.md.
-python finder\app.py                 # open http://127.0.0.1:8000, hit "↻ Harvest" (both portals),
+python finder\app.py                 # open http://127.0.0.1:9000, hit "↻ Harvest" (both portals),
                                      # review, tick offers, "Write worklist"
 ```
 

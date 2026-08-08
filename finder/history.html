@@ -144,9 +144,17 @@ function render(){
   }).join('')+'</ul>';
 }
 
+// A mouse-up that ends a text selection fires a click too -- toggling there would collapse
+// the panel out from under the text you just highlighted, so copying never works.
+function selectingText(el){
+  const s=window.getSelection();
+  return s && !s.isCollapsed && s.toString().trim() && el.contains(s.anchorNode);
+}
 document.getElementById('list').addEventListener('click',ev=>{
   const li=ev.target.closest('li.item');
   if(!li) return;
+  if(ev.target.closest('.detail')) return;   // the body is for reading/copying, not toggling
+  if(selectingText(li)) return;
   li.classList.toggle('open');
 });
 ['q','src','out'].forEach(id=>document.getElementById(id).addEventListener('input',render));

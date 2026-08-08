@@ -23,6 +23,13 @@ message already in the message box — replace it** (§6), never send it.
 2. Swap the attachment with **"zmień lub odrzuć plik"**; confirm the new filename shows.
 3. Submit is **"Wyślij formularz"**.
 
+**The account's file store has a ~6 CV cap and is normally full.** "zmień lub odrzuć plik" then
+opens the **"Dodawanie pliku z dysku"** dialog showing a red *"Osiągnąłeś limit posiadanych
+plików CV"* banner over the list of stored files — and no working picker. **This is not a block
+and not a failed upload:** each row has a **trash icon**; delete every row — all of them, not
+just enough to make room, they are stale duplicates of earlier runs — and the picker comes back.
+Then upload the §7 variant and confirm its filename shows.
+
 **The application is not over at "Wyślij formularz"** — a second form, **"Pytania od
 pracodawcy"**, usually opens right after. Answer it too (§5 fields, §6 free-text) and send it;
 in `review` mode fill it and stop before its send button.

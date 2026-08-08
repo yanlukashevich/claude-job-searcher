@@ -52,10 +52,9 @@ open or reuse your tab (§4)
 ```
 
 ### After the Apply click
-On justjoin that button has ignored ref-clicks in nearly every measured run — click it by
-**coordinate** from the start (screenshot for position, then vision `left_click`); on pracuj try
-the `ref` first and fall back to coordinate. Pracuj may run an intermediate **"Kontynuuj
-aplikowanie"** step before handing off.
+That button has ignored ref-clicks in nearly every measured run, on **both** portals — click it
+by **coordinate** from the start (screenshot for position, then vision `left_click`). Pracuj may run an intermediate **"Kontynuuj aplikowanie"** step
+before handing off.
 
 The page often looks unchanged afterwards, so **re-read `tabs_context_mcp` once**:
 - **A new tab appeared** → the click handed off to the company's external ATS. Continue the
@@ -75,6 +74,10 @@ Spend the vision `computer` tool only on **sensitive actions**: clicking Apply, 
 and any typing on a CAPTCHA-guarded page — vision goes through Chrome's real input layer, while
 `form_input` writes the DOM directly and is detectable. Screenshot only to diagnose a page you
 cannot understand from text.
+
+**Browser: the Windows Chrome, always.** Two browsers are connected. Work only in the **Windows**
+one — device id `033fee26`. **Never** the macOS one (`22ce25c0`): it is not Yan's logged-in
+browser.
 
 **Tabs.** Subagents share the orchestrator's tab group, so `tabs_context_mcp(createIfEmpty)`
 will *not* hand you a fresh tab. Call `tabs_context_mcp` once to see what's open, then:
@@ -218,14 +221,19 @@ Never submit in review mode. Never register an account in either mode.
 ## 10. Logging
 
 **You write the log yourself, every time** — even if you are blocked or short on context, the
-append is the last thing that must survive. One `mcp__remote-devices__device_bash` call, with a
-quoted heredoc so nothing in your JSON gets expanded:
+append is the last thing that must survive. One `mcp__remote-devices__device_bash` call. The
+`printf` stamps the time from the machine clock and opens the object; the quoted heredoc carries
+your fields, so nothing in them gets expanded:
 
 ```
-cat >> <mount>/applications_log.jsonl <<'EOF'
-{"timestamp":"…", …}
+{ printf '{"timestamp":"%s",' "$(TZ=Europe/Warsaw date +%FT%T%:z)"; cat <<'EOF'
+"url":"…", …}
 EOF
+} >> <mount>/applications_log.jsonl
 ```
+
+The heredoc payload has **no `timestamp` and no opening `{`** — the `printf` wrote both. Never
+type a time yourself; you cannot know it.
 
 Then **verify with a second `device_bash` call** (`tail -n 1 <mount>/applications_log.jsonl`)
 that your line is the last one. Never verify with `Read`: the staged copy under
@@ -233,10 +241,9 @@ that your line is the last one. Never verify with `Read`: the staged copy under
 `Write`/`Edit`/`Bash` land in the sandbox the user never sees. Same mechanism for
 `<mount>/todo_manual.md`.
 
-Append **one JSON object per offer** (any outcome), on one line:
-```json
-{
-  "timestamp": "2026-07-07T14:30:00+02:00",
+Append **one JSON object per offer** (any outcome), on one line — these fields are the heredoc
+payload, picking up where the `printf` left off:
+```
   "url": "https://justjoin.it/job-offer/...",
   "company": "Crestt",
   "title": "Python Fullstack Developer",
@@ -263,8 +270,7 @@ Append **one JSON object per offer** (any outcome), on one line:
   → coordinate retry"`, `"form_input silent-fail → click+type"`), and the optional fields you
   left blank. Empty arrays when nothing applies; never prose.
 - **Always** include every composed free-text verbatim in `composed_answers`, even in review mode.
-- ISO-8601 with local `+02:00` offset. Write it **before you report back**; if a fill and a block
-  both happen, log the block.
+- Write the line **before you report back**; if a fill and a block both happen, log the block.
 
 For a blocked offer, also append to `todo_manual.md`:
 ```

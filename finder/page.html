@@ -561,11 +561,14 @@ document.getElementById('list').addEventListener('click',async e=>{
     return; }
   const coh=e.target.closest('.co-head.clk');
   if(coh){ const c=coh.dataset.co; COEXP.has(c)?COEXP.delete(c):COEXP.add(c); render(); return; }
-  // clicks inside the prompt block or the score editor (typing/selecting) must not collapse the detail
-  if(e.target.closest('.applyprompt') || e.target.closest('.scoreedit')) return;
-  // otherwise: toggle the detail panel
+  // the detail body is for reading/copying -- a mouse-up ending a selection fires a click too,
+  // and toggling there would collapse the panel out from under the text you just highlighted
+  if(e.target.closest('.detail')) return;
   const li=e.target.closest('li.of');
-  if(li && !e.target.closest('a')) li.classList.toggle('open');
+  if(!li || e.target.closest('a')) return;
+  const s=window.getSelection();
+  if(s && !s.isCollapsed && s.toString().trim() && li.contains(s.anchorNode)) return;
+  li.classList.toggle('open');
 });
 
 document.getElementById('write').addEventListener('click',async()=>{

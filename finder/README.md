@@ -28,7 +28,7 @@ python finder\harvest_pracuj.py     # pracuj.pl    (~2 min, 42 pages)
 # --days 7 pages only the last week; a partial feed cannot tell "gone" from
 # "not in this slice", so it only adds and never archives. justjoin only.
 
-# 2. Start the cockpit, then open http://127.0.0.1:8000
+# 2. Start the cockpit, then open http://127.0.0.1:9000
 python finder\app.py
 ```
 
