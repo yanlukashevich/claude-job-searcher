@@ -192,13 +192,13 @@ A **portal's own form arrives with a CV already attached** — the portal stores
 generic name and the content behind it changes, so the attachment has been the wrong variant on
 every measured run. **Never keep it**; `portal_quirks.md` has the swap recipe for your portal.
 
-**Don't verify the file exists — just upload it.** A sandbox `ls` of `CV_PDF/` proves nothing
-(§1), and `Read` on a PDF fails with a *rendering* error that says nothing about the file. The
-only real confirmation is the upload: `file_upload` returns the file size and the form shows the
-attached filename. If `file_upload` **rejects the raw path** (a session file-read restriction),
-stage the file with `device_stage_files` and upload the staged path. If it reports the file
-**missing**, retry with the `universal` variant in the same language; only if that is rejected
-too → block (§8.3, "CV file missing").
+**Uploading — two calls, never one.** `file_upload` reads only your own sandbox, and the CV is on
+the user's machine, so the profile's path never uploads directly. Don't check it exists first:
+1. `device_stage_files` on `C:\Users\yanlu\prog\claude_job_seracher\src\` + the profile's path
+   (Windows path only — it rejects `<mount>` paths).
+2. `file_upload` the `stagedPath` it returns. It lands on the first try.
+
+Staging says the file is missing → retry `universal` in the same language, then block (§8.3, "CV file missing").
 
 ## 8. The only "stop → manual" triggers
 Stop, log to `todo_manual.md`, move on **only** for:
@@ -237,9 +237,10 @@ type a time yourself; you cannot know it.
 
 Then **verify with a second `device_bash` call** (`tail -n 1 <mount>/applications_log.jsonl`)
 that your line is the last one. Never verify with `Read`: the staged copy under
-`/mnt/user-data/uploads/` is a snapshot from run start and never shows your appends. Your own
-`Write`/`Edit`/`Bash` land in the sandbox the user never sees. Same mechanism for
-`<mount>/todo_manual.md`.
+`/mnt/user-data/uploads/` is a snapshot from run start and never shows your appends.
+`Write`/`Edit` on a `<mount>` path answer *"File created successfully"* and write to a copy the
+user never sees — after that your own `>>` silently "succeeds" there too. So if `tail -n 1`
+doesn't show your line, say so in your report. Same mechanism for `<mount>/todo_manual.md`.
 
 Append **one JSON object per offer** (any outcome), on one line — these fields are the heredoc
 payload, picking up where the `printf` left off:

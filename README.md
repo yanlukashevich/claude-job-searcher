@@ -131,9 +131,9 @@ agent mount is an isolation boundary, and that duplication *is* the security mod
   SmartRecruiters, custom sites), review mode, full audit logging
 - ✅ **Finder** — live: harvest, scoring, cockpit, applied-status tracking
 - ✅ **Trainer** — live: prompt-optimization loop with measured token/quality gains
-- 🔜 pracuj.pl as a second offer source (offer IDs already hash source-independently, so the
+- ✅ pracuj.pl as a second offer source (offer IDs hash source-independently, so the
   same job collapses across boards)
-- 🔜 auto-submit for the cleanest ATS paths, once the trainer's quality bar is met
+- ✅ auto-submit for the cleanest ATS paths
 
 ## Documentation
 
