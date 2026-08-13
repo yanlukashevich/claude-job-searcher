@@ -24,7 +24,8 @@
   .co{color:var(--dim);margin-left:8px}
   .badge{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin-left:6px;white-space:nowrap}
   .out{font-size:12px;font-weight:600;padding:1px 9px;border-radius:10px;white-space:nowrap;flex:none}
-  .out-applied_manual,.out-submitted{color:var(--good-2);border:1px solid var(--good-2)}
+  .out-applied_manual,.out-submitted,.out-applied_clean,.out-applied_composed{
+    color:var(--good-2);border:1px solid var(--good-2)}
   .out-filled_review{color:var(--accent);border:1px solid var(--accent)}
   .out-blocked{color:var(--bad);border:1px solid var(--bad)}
   .src{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px;flex:none}
@@ -39,6 +40,38 @@
   .ans{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 11px;margin-top:8px}
   .ans .q{color:var(--dim);font-size:12px;margin-bottom:3px}
   .ans .a{white-space:pre-wrap}
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:11px 14px 9px;margin:2px 0 14px;position:relative}
+  .chart .hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  .legend{display:flex;gap:12px;text-transform:none;letter-spacing:0}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .sw{width:9px;height:9px;border-radius:2px;flex:none}
+  .sw-sent{background:var(--good-2)} .sw-review{background:var(--accent)}
+  .sw-blocked{background:var(--bad)} .sw-other{background:var(--dim)}
+  .bars{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+  .bar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;
+    cursor:default}
+  .bar .n{font-size:11px;font-variant-numeric:tabular-nums;color:var(--good-2);font-weight:600}
+  .bar.nogood .n{color:var(--dim);font-weight:400;opacity:.5}
+  .stack{width:100%;display:flex;flex-direction:column;justify-content:flex-end;
+    border-radius:4px 4px 0 0;overflow:hidden}
+  .stack .seg{width:100%}
+  .seg-sent{background:var(--good-2)} .seg-review{background:var(--accent)}
+  .seg-blocked{background:var(--bad)} .seg-other{background:var(--dim)}
+  .seg-empty{background:var(--line)}
+  .bar:hover .stack{outline:1px solid var(--fg);outline-offset:1px}
+  .bar .lb{font-size:11px;color:var(--dim);text-align:center;line-height:1.3;white-space:nowrap}
+  .bar.today .lb{color:var(--fg);font-weight:600}
+  .tip{position:absolute;z-index:5;pointer-events:none;display:none;
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;
+    font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35);min-width:150px}
+  .tip.on{display:block}
+  .tip .th{color:var(--dim);font-size:11px;margin-bottom:5px}
+  .tip .tr{display:flex;align-items:center;gap:6px;justify-content:space-between}
+  .tip .tr .lft{display:flex;align-items:center;gap:6px}
+  .tip .tr b{font-variant-numeric:tabular-nums}
+  .tip .tt{border-top:1px solid var(--line);margin-top:5px;padding-top:5px;color:var(--dim)}
   .notes{white-space:pre-wrap;color:var(--fg)}
   .muted{color:var(--dim)}
 </style></head><body>
@@ -46,7 +79,9 @@
   <h1>Application history</h1><a class="back" href="/">← back to cockpit</a>
   <div class="sub">Every offer applied to — the bot's full trail (one entry per attempt, retries
     included) plus everything you marked by hand. Click a row to see the details: CV used, the
-    free-text the bot composed, blockers and notes.</div>
+    free-text the bot composed, blockers and notes. The chart stacks each day's outcomes; the
+    number above a bar counts only the ones that went out (review-mode fills included). It
+    follows the filters below.</div>
   <div class="bar">
     <input type="search" id="q" placeholder="filter title / company…">
     <div class="filter">
@@ -57,9 +92,11 @@
       </select>
       <select id="out">
         <option value="">all outcomes</option>
-        <option value="submitted">submitted</option>
-        <option value="filled_review">filled (review)</option>
+        <option value="sent">sent (any)</option>
+        <option value="applied_clean">sent — clean</option>
+        <option value="applied_composed">sent — composed</option>
         <option value="applied_manual">applied by hand</option>
+        <option value="filled_review">filled (review)</option>
         <option value="blocked">blocked</option>
       </select>
     </div>
@@ -68,6 +105,7 @@
 </header>
 <div class="wrap">
   <div class="stats" id="stats"></div>
+  <div class="chart" id="chart"></div>
   <div id="list"></div>
 </div>
 <script>
@@ -75,20 +113,112 @@ let EVENTS=[];
 const esc=s=>(s==null?'':String(s)).replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
 const attr=s=>esc(s).replace(/"/g,'&quot;');
 const when=s=>(s||'').replace('T',' ').slice(0,16);
-const OUTLABEL={submitted:'submitted',filled_review:'filled (review)',
-  applied_manual:'applied by hand',blocked:'blocked'};
+// The applier writes these four (applier_instructions.md §10); manual marks add the fifth.
+// `submitted` is a legacy name kept only so old log lines still render.
+const OUTLABEL={applied_clean:'sent (clean)',applied_composed:'sent (composed)',
+  filled_review:'filled (review)',applied_manual:'applied by hand',blocked:'blocked',
+  submitted:'sent'};
 
 function renderStats(ev){
   const n=ev.length;
   const c=k=>ev.filter(e=>e.outcome===k).length;
+  const seg=k=>SEG.find(s=>s.k===k).outcomes.reduce((a,o)=>a+c(o),0);
   const tile=(k,v,s,cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div>`
     +`<div class="v">${v}</div><div class="s">${s||''}</div></div>`;
   document.getElementById('stats').innerHTML=
      tile('total',   n, 'applications')
-    +tile('submitted',c('submitted')+c('applied_manual'),'sent',  'ok')
+    +tile('sent',    seg('sent'),'submitted',  'ok')
     +tile('review',  c('filled_review'),'staged, not sent','rev')
     +tile('blocked', c('blocked'),'need manual','bad');
 }
+
+// Timestamps arrive in mixed zones (bot logs +02:00, manual marks UTC), so bucket by the
+// LOCAL calendar day the Date resolves to -- not by slicing the string.
+const dayKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+  +'-'+String(d.getDate()).padStart(2,'0');
+
+// The stack, bottom-up. `good` marks what counts as an application that actually went out:
+// a review-mode fill is a finished application waiting on one click, so it counts; a blocked
+// one never left, so it does not -- it rides the stack only to show the day's failure rate.
+const SEG=[
+  {k:'sent',   label:'sent',            good:true,
+   outcomes:['applied_clean','applied_composed','applied_manual','submitted']},
+  {k:'review', label:'filled (review)', good:true,  outcomes:['filled_review']},
+  {k:'blocked',label:'blocked',         good:false, outcomes:['blocked']},
+  {k:'other',  label:'other',           good:false, outcomes:[]},   // anything unrecognised
+];
+const SEGOF={}; SEG.forEach(s=>s.outcomes.forEach(o=>SEGOF[o]=s.k));
+let BARS=[];
+
+function renderChart(ev){
+  const DAYS=10, H=110;
+  const days={};
+  ev.forEach(e=>{
+    const d=e.at?new Date(e.at):null;
+    if(!d||isNaN(d)) return;
+    const k=dayKey(d);
+    (days[k]=days[k]||{})[SEGOF[e.outcome]||'other']=
+      ((days[k]||{})[SEGOF[e.outcome]||'other']||0)+1;
+  });
+  const today=new Date(); today.setHours(0,0,0,0);
+  BARS=[];
+  for(let i=DAYS-1;i>=0;i--){
+    const d=new Date(today); d.setDate(d.getDate()-i);
+    const c=days[dayKey(d)]||{};
+    const total=SEG.reduce((a,s)=>a+(c[s.k]||0),0);
+    const good=SEG.reduce((a,s)=>a+(s.good?(c[s.k]||0):0),0);
+    BARS.push({d,c,total,good,today:i===0});
+  }
+  const max=Math.max(1,...BARS.map(b=>b.total));
+  const good=BARS.reduce((a,b)=>a+b.good,0);
+  const lost=BARS.reduce((a,b)=>a+b.total-b.good,0);
+  document.getElementById('chart').innerHTML=
+    `<div class="hd"><span>applications per day — last ${DAYS} days</span>`
+    +'<span class="legend">'+SEG.filter(s=>s.k!=='other'||BARS.some(b=>b.c.other))
+        .map(s=>`<span><i class="sw sw-${s.k}"></i>${s.label}</span>`).join('')
+    +`</span><span>${good} out${lost?` · ${lost} not`:''}</span></div>`
+    +'<div class="bars">'+BARS.map((b,i)=>{
+      // Every non-zero segment gets a visible sliver, so a lone blocked day still reads.
+      const segs=b.total
+        ? SEG.filter(s=>b.c[s.k]).map(s=>
+            `<div class="seg seg-${s.k}" style="height:${
+              Math.max(3,Math.round(b.c[s.k]/max*H))}px"></div>`).reverse().join('')
+        : '<div class="seg seg-empty" style="height:2px"></div>';
+      const lbl=b.d.toLocaleDateString(undefined,{weekday:'short'})
+        +'<br>'+String(b.d.getDate()).padStart(2,'0')+'.'
+        +String(b.d.getMonth()+1).padStart(2,'0');
+      return `<div class="bar${b.good?'':' nogood'}${b.today?' today':''}" data-i="${i}">
+        <span class="n">${b.good}</span>
+        <div class="stack">${segs}</div>
+        <span class="lb">${lbl}</span></div>`;
+    }).join('')+'</div><div class="tip" id="tip"></div>';
+}
+
+function tipHtml(b){
+  const rows=SEG.filter(s=>b.c[s.k]).map(s=>
+    `<div class="tr"><span class="lft"><i class="sw sw-${s.k}"></i>${s.label}</span>`
+    +`<b>${b.c[s.k]}</b></div>`).join('');
+  return `<div class="th">${esc(b.d.toLocaleDateString(undefined,
+      {weekday:'long',day:'2-digit',month:'2-digit'}))}</div>`
+    +(rows||'<div class="tr"><span class="lft">nothing</span><b>0</b></div>')
+    +`<div class="tr tt"><span class="lft">counted as applied</span><b>${b.good}</b></div>`;
+}
+
+document.getElementById('chart').addEventListener('mouseover',ev=>{
+  const bar=ev.target.closest('.bar'); const tip=document.getElementById('tip');
+  if(!bar||!tip) return;
+  tip.innerHTML=tipHtml(BARS[+bar.dataset.i]);
+  tip.classList.add('on');
+  const box=document.getElementById('chart').getBoundingClientRect();
+  const r=bar.getBoundingClientRect();
+  const w=tip.offsetWidth;
+  const left=Math.min(Math.max(4,r.left-box.left+r.width/2-w/2),box.width-w-4);
+  tip.style.left=left+'px';
+  tip.style.top=Math.max(4,r.top-box.top-tip.offsetHeight-6)+'px';
+});
+document.getElementById('chart').addEventListener('mouseleave',()=>{
+  const tip=document.getElementById('tip'); if(tip) tip.classList.remove('on');
+});
 
 function detailHtml(e){
   const rows=[];
@@ -117,11 +247,14 @@ function render(){
   const fout=document.getElementById('out').value;
   const ev=EVENTS.filter(e=>{
     if(fsrc&&e.source!==fsrc) return false;
-    if(fout&&e.outcome!==fout) return false;
+    // "sent" is a group of outcomes (clean/composed/by hand), the rest are literal.
+    if(fout==='sent'){ if(SEGOF[e.outcome]!=='sent') return false; }
+    else if(fout&&e.outcome!==fout) return false;
     if(q){const hay=(e.title+' '+e.company).toLowerCase(); if(!hay.includes(q)) return false;}
     return true;
   });
   renderStats(ev);
+  renderChart(ev);
   document.getElementById('cnt').textContent=
     ev.length+' of '+EVENTS.length+' shown';
   const list=document.getElementById('list');
