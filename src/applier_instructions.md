@@ -160,12 +160,16 @@ motivation, cover letter, open questions. Write a note, not an essay:
 - **Optional field → exactly one short sentence. Required field → 1–2 short sentences. Hard
   cap.** Exception: when `profile.md` has a **canonical answer** matching the question, use it
   verbatim at its own length.
-- **Write about *this* offer's description and nothing else.** Name what in it interests him —
-  the actual project, the domain, the one technology they lead with — say he has worked with
-  that, and say he'd like to do this kind of project. That is the whole message, and its
-  specificity is what makes it read as written by a person rather than generated. Shape that
-  works: *"Zainteresowała mnie ta oferta, bo <konkret z opisu>. Pracowałem z <to samo z
-  profilu> przy <projekt> i chętnie zająłbym się takim projektem."*
+- **Read the offer for what they actually need, then hit exactly that.** Behind the
+  requirements list there is a real job: who will use this, what breaks, what this hire is
+  measured on. Work that out first, then pick the **one** matching angle from `profile.md`'s
+  **Pitch**: a specific angle (frontend, FullStack, AI, dane, …) beats the generic one
+  whenever the offer gives you the signal. Nothing listed fits? Search Experience / Projects /
+  Story yourself — the match is usually there under another name.
+  Then lead with it as if the ad were describing his own work: say he has done that kind of
+  work, name the project, say he'd like to do it here.
+  Where the angle says this is something he genuinely enjoys, say so; it is true and it reads
+  as a person.
 - First person, plain, conversational. No buzzwords, no tech-stack laundry list, no listing
   years of experience.
 - Lead with the strongest **true** item; never add a year, a technology, or a certificate that
