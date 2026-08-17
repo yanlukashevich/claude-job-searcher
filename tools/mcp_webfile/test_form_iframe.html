@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: .75rem; }
+  .got { font-family: ui-monospace, monospace; color: #0a7; }
+  .got:empty::before { content: "(nothing yet)"; color: #999; }
+</style>
+
+<p>I live in an iframe. <code>page.set_input_files</code> on the main frame will not find me.</p>
+<input type="file" id="framed">
+<p>got: <span class="got" id="out"></span></p>
+
+<script>
+  document.getElementById("framed").addEventListener("change", e => {
+    const f = e.target.files[0];
+    document.getElementById("out").textContent = f ? `${f.name} (${f.size} bytes)` : "";
+  });
+</script>

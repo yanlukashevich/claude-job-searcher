@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>webfile test form</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+  section { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+  h2 { font-size: 1rem; margin: 0 0 .5rem; }
+  .got { font-family: ui-monospace, monospace; color: #0a7; }
+  .got:empty::before { content: "(nothing yet)"; color: #999; }
+  label.fake { display: inline-block; background: #06c; color: #fff; padding: .4rem .8rem;
+               border-radius: 4px; cursor: pointer; }
+  #hidden { display: none; }
+  iframe { width: 100%; height: 130px; border: 1px dashed #aaa; border-radius: 4px; }
+</style>
+
+<h1>webfile test form</h1>
+<p>Three shapes a real upload field comes in. The green text is
+   <code>input.files[0].name</code>, written by the <code>change</code> event — so if it
+   appears, the page really noticed the file.</p>
+
+<section>
+  <h2>1 &middot; plain visible input</h2>
+  <input type="file" id="plain">
+  <p>got: <span class="got" id="out-plain"></span></p>
+</section>
+
+<section>
+  <h2>2 &middot; hidden input behind a styled label</h2>
+  <label class="fake" for="hidden">Choose file</label>
+  <input type="file" id="hidden">
+  <p>got: <span class="got" id="out-hidden"></span></p>
+</section>
+
+<section>
+  <h2>3 &middot; input inside an iframe</h2>
+  <iframe src="test_form_iframe.html"></iframe>
+</section>
+
+<script>
+  for (const id of ["plain", "hidden"]) {
+    document.getElementById(id).addEventListener("change", e => {
+      const f = e.target.files[0];
+      document.getElementById("out-" + id).textContent = f ? `${f.name} (${f.size} bytes)` : "";
+    });
+  }
+</script>
