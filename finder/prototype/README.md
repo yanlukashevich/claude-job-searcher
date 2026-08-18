@@ -11,7 +11,7 @@ offers; later an LLM makes the actual keep/reject call. Every offer lands in one
 
 | bucket | meaning |
 |---|---|
-| `1_KILL`   | a forbidden word appeared (SAP, Salesforce, a design/security *role* in the title…) |
+| `1_KILL`   | a whole other career appeared (SAP, Salesforce, COBOL) or a QA / support / UX-designer / SecOps *role* is in the title |
 | `2_VETO`   | the title names someone else's stack (Java, PHP, mobile…) and no core tech |
 | `3_NEG`    | score ≤ 0 |
 | `4_WEAK`   | score 1–4 |
@@ -25,6 +25,20 @@ are scored by the ROLE table, not as keywords, so they are never counted twice.
 The scale (in `keywords.py`) is about **identity, not difficulty**:
 `+3` this is my job · `+1` no signal, or one step away · `−1` a different *kind* of dev ·
 `−3` a different profession · `KILL` never.
+
+Four directions count as "my job": AI/ML, fullstack (Python/C#/JavaScript), data analysis,
+frontend — with DevOps one step away at `+1`. Testing and support are `−1` as *tools* and a
+kill as a *role*: a QA title naming C#/.NET outscored real .NET jobs, because a score penalty
+can never beat two title tech hits at +6 each.
+
+The kills are deliberately narrow, because a kill is the one verdict the score cannot appeal.
+`KILL` holds only words that name another *career*; a word that can be item 9 of 10 on a
+normal developer's skill list (sharepoint, power automate, `validation (pharma)`) lives in
+`−3 OFF` instead, so the rest of the offer can outvote it, and the title veto still stops it
+when it names the job. `TITLE_KILL` holds *roles*, never domains: `security engineer` and
+`solution designer` are jobs Yan can do and are not killed, while `soc analyst` and
+`ux designer` are. Bare `security`, `design`, `designer`, `ux` and `projektant` used to be in
+there and cost real frontend, Python and AI offers — they are gone.
 
 ## Files
 
@@ -54,6 +68,10 @@ title / company / skill. Tuning loop: edit `keywords.py` → `python browse.py` 
 - Vendor spelling variants leak (`sap ecc`/`sap hana` not killed; `react.js` ≠ `reactjs`).
 - A skills-side veto (Java in the *skills* with no core tech) is not yet implemented — a few
   Java jobs with neutral titles still reach `6_STRONG`.
+- 28% of skill mentions are outside the vocabulary (`react.js`, `apache airflow`, `langgraph`,
+  `spring framework`…); 413 offers have no recognised skill at all and 1023 have none listed,
+  so their score is the title alone. Fix by mining synonyms off the embedding cache —
+  see `../../docs/SEMANTIC_SCORING_PLAN.md`.
 - The justjoin **category** is a stronger signal than any keyword and is currently unused by
   the score. Candidate policy: hard-keep js/python/net/html; drop java/php/mobile/ux/erp/pm/
   analytics/game/security unless very high; let the score decide the rest.
