@@ -13,7 +13,7 @@ learned something that isn't derivable from them.
 Reached from a portal via Apply → new tab. On justjoin the on-page Apply refs can be duds;
 the **top sticky "Apply" button** is the one that opens the ATS tab.
 
-The form is Polish → answer in Polish, upload the PL CV.
+The form is Polish → answer in Polish (the CV language still follows the offer, §7).
 
 1. **Cookie wall.** Dismiss OneTrust with **"Odrzuć wszystkie"** (privacy-preserving).
 2. **Every dropdown is a custom React listbox, not a `<select>`** — Kraj, forma współpracy,

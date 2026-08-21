@@ -147,7 +147,7 @@ in `auto` stop now, in `review` fill the rest for the user and still report it b
 ## 6. Free-text & language
 
 Answer **each field in the language of the form**: Polish form → Polish, English form → English.
-The CV language follows the same rule (§7).
+The CV language does *not* follow this rule — it follows the offer’s language (§7).
 
 **One voice on every offer: polite, but not stiff.** Write to a person you respect and haven't
 met. **Never mirror the page's register.** A ceremonious job ad, or the boilerplate a portal
@@ -180,17 +180,16 @@ motivation, cover letter, open questions. Write a note, not an essay:
 ## 7. CV selection
 
 **You pick the variant from the offer itself**, using the description you already read in §3.
-Which technology do the requirements actually lean on — `python` · `dotnet` (C#, .NET) · `cloud`
-(AWS/Azure, Kubernetes, Terraform, CI/CD)? One clearly dominates → that variant. Two share the
-page, or none does (a generic backend/fullstack ad) → `universal`. Judge the weight of the
-requirements, not a single mention: a Python job that happens to run on Azure is still `python`.
+Six of the seven variants are specialised and **the specialised one is the point** — read what
+the job is actually for, then take the matching row of the **CV variants** table in `profile.md`.
+Judge the weight of the requirements, not a single mention: a Python job that happens to run on
+Azure is still `python_ai`/`python_fullstack`, not `devops`. Torn between two? Take the one
+carrying more of the requirements. `uniwersalne` is the **last resort**, not the safe default —
+use it only when the offer genuinely spans several variants with none in front, or names a stack
+none of them covers.
 
-The worklist's `stack` is a hint, not an instruction — trust it when it names a technology,
-ignore it when it says `universal`. pracuj.pl labels **every** offer that way, its Python ones
-included.
-
-Then pick `pl`/`en` by the form's language (§6), take that variant's path from the **CV variants**
-table in `profile.md`, and upload it.
+Then pick PL/EN by **the language the offer's description is written in** — Polish ad → PL file,
+English ad → EN file, and upload it.
 
 A **portal's own form arrives with a CV already attached** — the portal stores one file under a
 generic name and the content behind it changes, so the attachment has been the wrong variant on
@@ -202,7 +201,7 @@ the user's machine, so the profile's path never uploads directly. Don't check it
    (Windows path only — it rejects `<mount>` paths).
 2. `file_upload` the `stagedPath` it returns. It lands on the first try.
 
-Staging says the file is missing → retry `universal` in the same language, then block (§8.3, "CV file missing").
+Staging says the file is missing → retry `uniwersalne` in the same language, then block (§8.3, "CV file missing").
 
 ## 8. The only "stop → manual" triggers
 Stop, log to `todo_manual.md`, move on **only** for:
@@ -254,7 +253,7 @@ payload, picking up where the `printf` left off:
   "title": "Python Fullstack Developer",
   "apply_type": "internal | external_ats | custom | register | captcha",
   "outcome": "applied_clean | applied_composed | filled_review | blocked",
-  "cv_used": "CV_PDF/CV_Yan_Lukashevich_python/CV_Yan_Lukashevich_EN.pdf",
+  "cv_used": "CV_PDF/CV_Yan_Lukashevich_python_ai/CV_Yan_Lukashevich_EN.pdf",
   "composed_answers": [
     { "field": "Message to the recruiter", "text": "<verbatim text written>" }
   ],

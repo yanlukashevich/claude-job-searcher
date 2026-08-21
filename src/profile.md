@@ -224,11 +224,15 @@ For questions like „czego szukasz?", „dlaczego zmieniasz pracę?", „motywa
   real people have and turning it into something that actually works."
 
 ## CV variants
-Files under `CV_PDF/`. Default variant = **universal**.
+Every variant folder under `CV_PDF/` holds the same two files: `CV_Yan_Lukashevich.pdf` (PL) and
+`CV_Yan_Lukashevich_EN.pdf` (EN). Path = `CV_PDF/<folder>/<file>`.
 
-| Offer stack | PL file | EN file |
-|-------------|---------|---------|
-| python | `CV_PDF/CV_Yan_Lukashevich_python/CV_Yan_Lukashevich.pdf` | `CV_PDF/CV_Yan_Lukashevich_python/CV_Yan_Lukashevich_EN.pdf` |
-| dotnet | `CV_PDF/CV_Yan_Lukashevich_dotnet_fullstack/CV_Yan_Lukashevich.pdf` | `CV_PDF/CV_Yan_Lukashevich_dotnet_fullstack/CV_Yan_Lukashevich_EN.pdf` |
-| cloud / devops | `CV_PDF/CV_Yan_Lukashevich_cloud_devops/CV_Yan_Lukashevich.pdf` | `CV_PDF/CV_Yan_Lukashevich_cloud_devops/CV_Yan_Lukashevich_EN.pdf` |
-| universal (default) | `CV_PDF/CV_Yan_Lukashevich_universal/CV_Yan_Lukashevich.pdf` | `CV_PDF/CV_Yan_Lukashevich_universal/CV_Yan_Lukashevich_EN.pdf` |
+| Offer leans on | folder |
+|----------------|--------|
+| Python / AI — LLM & agent systems, automation, scripting | `CV_Yan_Lukashevich_python_ai` |
+| Python full-stack — FastAPI / Django + React | `CV_Yan_Lukashevich_python_fullstack` |
+| C# / .NET — ASP.NET Core, Azure, React | `CV_Yan_Lukashevich_csharp_fullstack` |
+| JavaScript / TypeScript — React, Node / NestJS | `CV_Yan_Lukashevich_js_fullstack` |
+| DevOps / cloud / sysadmin — Azure, CI/CD, Docker, Linux, networking | `CV_Yan_Lukashevich_devops` |
+| Data / business analyst — SQL, pandas, Excel, reporting, requirements | `CV_Yan_Lukashevich_analityk_danych` |
+| fallback — nothing above clearly leads | `CV_Yan_Lukashevich_uniwersalne` |
