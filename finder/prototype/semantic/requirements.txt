@@ -1,0 +1,10 @@
+# Semantic scoring prototype. Install into the repo-root venv:
+#   python -m venv .venv
+#   .venv\Scripts\python.exe -m pip install -r finder\prototype\semantic\requirements.txt
+#
+# Pulls torch (CPU wheel on Windows, ~200 MB) + transformers + tokenizers, ~1 GB total.
+# The model itself (~470 MB) downloads on first use into ~/.cache/huggingface.
+# scikit-learn is a sentence-transformers dependency; Stage 8 uses it directly.
+
+sentence-transformers>=5.7
+numpy>=2
