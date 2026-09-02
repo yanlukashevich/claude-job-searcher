@@ -27,7 +27,7 @@ When this file and the playbook disagree on a fact, this file wins.
 
 ## Employment
 - Contract types: **umowa o pracę preferred**, B2B also fine
-- Expected salary: **10000 PLN / month, gross**
+- Expected salary: **11000 PLN / month, gross**
 - Hourly rate (per-hour / B2B forms): **60 PLN / hour**
 
 ## Languages
