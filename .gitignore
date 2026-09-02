@@ -3,6 +3,10 @@ __pycache__/
 *.pyc
 .venv/
 
+scan_pracuj/*
+
+docs/*
+
 # Backups (scripts write .bak next to their output)
 *.bak
 
