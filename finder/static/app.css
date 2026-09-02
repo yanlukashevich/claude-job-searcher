@@ -34,6 +34,14 @@ body{margin:0;background:var(--bg);color:var(--fg);
   padding:0 6px;color:var(--dim);cursor:help}
 .site.s-p{border-color:var(--warn);color:var(--warn)}
 .site.s-jp{border-color:var(--accent);color:var(--accent)}
+/* toolbar button / link: the cockpit's header controls and the harvest page's worklist pair */
+.tool{background:var(--card);border:1px solid var(--line);color:var(--fg);
+  padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.45}
+.tool:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:disabled{background:var(--card);border-color:var(--line);color:var(--dim);
+  cursor:default;font-weight:400}
 .empty{color:var(--dim);padding:24px 2px}
 .pos{color:var(--good-2)} .neg{color:var(--bad)}
 .back{color:var(--accent);text-decoration:none;font-size:12px;margin-left:12px}

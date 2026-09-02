@@ -3,6 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Apply cockpit — offers by company</title>
 <link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/offer.css">
 <style>
   header{padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;
     background:var(--bg);z-index:5}
@@ -12,52 +13,9 @@
     padding:6px 10px;border-radius:6px;min-width:240px;font-size:13px}
   select{background:var(--card);border:1px solid var(--line);color:var(--fg);
     padding:6px 8px;border-radius:6px;font-size:13px}
-  .cnt{color:var(--dim);font-size:12px}
-  .tool{background:var(--card);border:1px solid var(--line);color:var(--fg);
-    padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;
-    text-decoration:none;display:inline-block;line-height:1.45}
-  .tool:hover{border-color:var(--accent)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-  button.primary:disabled{background:var(--card);border-color:var(--line);color:var(--dim);
-    cursor:default;font-weight:400}
   .wrap{padding:14px 18px;max-width:1000px}
-  .co-group{margin:0 0 18px}
-  .co-head{display:flex;gap:9px;align-items:baseline;padding:6px 2px;
-    border-bottom:1px solid var(--line);position:sticky;top:96px;background:var(--bg)}
-  .co-head.clk{cursor:pointer;user-select:none}
-  .co-head.clk:hover .co-name{color:var(--accent)}
-  .cocaret{color:var(--dim);font-size:11px;width:11px;display:inline-block;align-self:center}
-  .more{font-size:11px;color:var(--accent)}
-  .co-name{font-weight:700;font-size:15px}
-  .co-count{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;
-    padding:0 7px}
-  .co-count.big{color:var(--warn);border-color:var(--warn)}
-  .co-warn{font-size:11.5px;color:var(--warn);margin-left:auto}
-  ul.offers{list-style:none;margin:6px 0 0;padding:0}
-  li.of{border:1px solid var(--line);border-left-width:4px;border-radius:7px;
-    margin:6px 0;background:var(--card)}
-  .lb0{border-left-color:var(--b1)}.lb1{border-left-color:var(--b2)}.lb2{border-left-color:var(--b3)}
-  .lb3{border-left-color:var(--b4)}.lb4{border-left-color:var(--b5)}.lb5{border-left-color:var(--b6)}
-  .row{display:flex;gap:9px;align-items:baseline;padding:8px 11px;cursor:pointer;flex-wrap:wrap}
-  .row input[type=checkbox]{cursor:pointer;margin:0;align-self:center}
-  .score{font-weight:700;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
-  .ttl{font-weight:600}
-  a.ttl{color:inherit;text-decoration:none;border-bottom:1px dotted var(--dim)}
-  a.ttl:hover{border-bottom-style:solid}
-  .caret{margin-left:auto;color:var(--dim);font-size:12px;user-select:none}
-  .pill{font-size:11px;border-radius:10px;padding:0 8px;font-weight:600}
-  .pill.bot{background:var(--good);color:#fff}
-  .pill.manual{background:var(--warn);color:#111}
-  .markbtn{background:var(--card);border:1px solid var(--line);color:var(--dim);
-    border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
-  .markbtn:hover{border-color:var(--warn);color:var(--fg)}
-  .markbtn.on{background:var(--warn);border-color:var(--warn);color:#111;font-weight:600}
-  .newbadge{font-size:10px;font-weight:700;letter-spacing:.5px;background:#3fae5f;color:#fff;
-    border-radius:8px;padding:0 6px;text-transform:uppercase}
-  .srclinks{margin:8px 0 0;display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
-  .srclinks a{color:var(--accent);text-decoration:none}
-  .srclinks a:hover{text-decoration:underline}
-  .srclinks .dead{color:var(--dim);text-decoration:line-through}
+  /* the group itself is styled in offer.css; here it hangs under the sticky page header */
+  .co-head{position:sticky;top:96px}
   /* category quick-filter chips: a few big categories + a "rest" catch-all */
   .catbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:2px 0 12px}
   .catchip{background:var(--card);border:1px solid var(--line);color:var(--fg);
@@ -76,34 +34,6 @@
   .bklegend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
   .bklegend .s0{background:var(--b1)}.bklegend .s1{background:var(--b2)}.bklegend .s2{background:var(--b3)}
   .bklegend .s3{background:var(--b4)}.bklegend .s4{background:var(--b5)}.bklegend .s5{background:var(--b6)}
-  li.of.applied{opacity:.62}
-  li.of.applied .ttl{text-decoration:line-through}
-  li.of.expired{opacity:.55;border-style:dashed;border-left-style:solid}
-  .expbadge{font-size:10px;font-weight:700;letter-spacing:.5px;border:1px solid var(--dim);
-    color:var(--dim);border-radius:8px;padding:0 6px;text-transform:uppercase}
-  .expnote{color:var(--dim);font-size:12px;margin:8px 0 0}
-  .detail{display:none;padding:2px 13px 12px;border-top:1px solid var(--line);font-size:12.5px}
-  li.of.open .detail{display:block}
-  .detail dl{display:grid;grid-template-columns:130px 1fr;gap:2px 12px;margin:8px 0}
-  .detail dt{color:var(--dim)} .detail dd{margin:0;word-break:break-word}
-  .detail .skills{color:var(--dim);margin:8px 0}
-  .detail .why{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--dim)}
-  .detail .notes{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);
-    border-radius:6px;padding:8px 10px;margin-top:6px}
-  .detail .freetext{background:var(--bg);border:1px solid var(--line);border-left:3px solid var(--accent);
-    border-radius:6px;padding:8px 10px;margin:4px 0;white-space:pre-wrap}
-  .applyprompt{margin-top:10px}
-  .applyprompt .head{display:flex;align-items:center;gap:10px;margin-bottom:5px}
-  .applyprompt .head .cnt{margin:0}
-  .copybtn{background:var(--accent);border:1px solid var(--accent);color:#fff;font-weight:600;
-    border-radius:6px;padding:3px 12px;font-size:12px;cursor:pointer}
-  .copybtn:hover{filter:brightness(1.08)} .copybtn.done{background:var(--good);border-color:var(--good)}
-  pre.prompt{background:var(--bg);border:1px solid var(--line);border-radius:6px;
-    padding:9px 11px;margin:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
-    line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:230px;overflow:auto}
-  .out-filled_review{color:var(--accent)}
-  .out-submitted,.out-applied_clean,.out-applied_composed,.out-applied_manual{color:#3fae5f}
-  .out-blocked{color:#e06a6a}
   /* clickable bucket filter (bar + legend) */
   .bkbar{cursor:pointer}
   .bkseg{transition:opacity .12s} .bkseg.off{opacity:.22}
@@ -112,20 +42,8 @@
   .bklegend span:hover{border-color:var(--line)}
   .bklegend span.on{color:var(--fg);border-color:var(--line)}
   .bklegend span.off{opacity:.45;text-decoration:line-through}
-  .ovr{color:var(--warn);font-size:11px}
-  /* per-offer score override */
-  .scoreedit{margin-top:10px;border-top:1px dashed var(--line);padding-top:9px}
-  .scoreedit .head{margin-bottom:5px}
-  .scorerow{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
-  .scoreinput{width:66px;background:var(--bg);border:1px solid var(--line);color:var(--fg);
-    border-radius:6px;padding:6px 8px;font-size:13px;font-variant-numeric:tabular-nums}
-  .scorereason{flex:1;min-width:220px;background:var(--bg);border:1px solid var(--line);color:var(--fg);
-    border-radius:6px;padding:6px 9px;font-size:12.5px;font-family:inherit;resize:vertical;min-height:38px}
-  .scorebtn{background:var(--accent);border:1px solid var(--accent);color:#fff;font-weight:600;
-    border-radius:6px;padding:6px 13px;font-size:12px;cursor:pointer;white-space:nowrap}
-  .scorebtn:hover{filter:brightness(1.08)} .scorebtn.done{background:var(--good);border-color:var(--good)}
-  .scoremeta{font-size:11px;color:var(--warn);margin-top:5px}
-</style></head><body>
+</style>
+<script src="/static/offer.js"></script></head><body>
 <header>
   <h1>Apply cockpit</h1>
   <div class="sub">Offers grouped by company. Click a row to expand what happened. A company with
@@ -181,40 +99,6 @@ let CATSEL='';                    // '' = all | '__rest__' = non-big categories 
 let BIGCATS=[];                   // categories with the MOST high-scoring offers (own chips)
 let CATCOUNTS={};                 // category -> total offers, over the full dataset
 let HICOUNTS={};                  // category -> count of high-scoring offers (drives the chips)
-
-const esc=s=>(s||'').replace(/[&<>]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[x]));
-const attr=s=>esc(s).replace(/"/g,'&quot;');
-// An offer is identified by title+company without the portal, so one posted on both collapses
-// into a single row carrying both links — "jp" is that, not a duplicate.
-const SITENAME={justjoin:'justjoin.it', pracuj:'pracuj.pl'};
-function siteTitle(o){
-  const names=(o.sources||[]).map(s=>SITENAME[s.site]||s.site);
-  return names.length>1 ? 'on both portals: '+names.join(' + ') : 'on '+(names[0]||'?');
-}
-function srcLinks(o){
-  const ss=(o.sources||[]).filter(s=>s.url);
-  if(ss.length<2) return '';                       // the title already links the only source
-  // One chip per PORTAL, not per link. A portal can hold several links to one job (a re-post
-  // under a new slug, one posting per city); the row keeps them all so an application filed
-  // through any of them still counts, but listing five chips would just bury the other portal.
-  const bySite=new Map();
-  for(const s of ss){ if(!bySite.has(s.site)) bySite.set(s.site,[]); bySite.get(s.site).push(s); }
-  if(bySite.size<2 && ss.length<2) return '';
-  const chips=[];
-  for(const [site,list] of bySite){
-    const s=list.find(x=>!x.archived_at)||list[0];
-    const extra=list.length>1?` +${list.length-1}`:'';
-    const tip=s.archived_at ? 'gone from this feed since '+s.archived_at.slice(0,10) : 'live';
-    chips.push(`<a class="${s.archived_at?'dead':''}" href="${attr(s.url)}" target="_blank"`
-      +` title="${attr(tip)}${list.length>1?` — ${list.length} postings of this job here`:''}"`
-      +`>${esc(SITENAME[site]||site)}${extra} ↗</a>`);
-  }
-  return '<div class="srclinks">'+chips.join('')+'</div>';
-}
-function whyHtml(w){
-  return esc(w).replace(/\+[^−]+/g,m=>'<span class="pos">'+m+'</span>')
-               .replace(/−.+$/,m=>'<span class="neg">'+m+'</span>');
-}
 
 async function load(){
   const r=await fetch('/api/offers'); const d=await r.json();
@@ -337,102 +221,6 @@ function groupByCompany(rows){
   return groups;
 }
 
-function offerLi(o){
-  const applied=!!o.applied_by;
-  const meta=[o.level,o.workplace,o.cities.join(', '),o.salary,o.stack]
-    .filter(Boolean).map(x=>`<span class="badge">${esc(x)}</span>`).join(' ');
-  let pill='';
-  if(o.applied_by==='bot'){
-    const oc=o.application?o.application.outcome:'';
-    pill=`<span class="pill bot">bot · ${esc(oc)}</span>`;
-  }else if(o.applied_by==='manual'){
-    pill=`<span class="pill manual">applied by me</span>`;
-  }
-  const checkbox=applied?'' :
-    `<input type="checkbox" class="pick" data-u="${attr(o.url)}" ${SEL.has(o.url)?'checked':''}>`;
-  const isManual=o.applied_by==='manual';
-  const mark=`<button class="markbtn${isManual?' on':''}" data-u="${attr(o.url)}">${isManual?'✓ applied by me':'I applied by hand'}</button>`;
-  const title=o.url?`<a class="ttl" href="${attr(o.url)}" target="_blank" onclick="event.stopPropagation()">${esc(o.title)}</a>`
-                   :`<span class="ttl">${esc(o.title)}</span>`;
-  const newb=o.is_new?'<span class="newbadge">new</span>':'';
-  const site=o.sites?`<span class="site s-${o.sites}" title="${attr(siteTitle(o))}">${esc(o.sites)}</span>`:'';
-  const expb=o.archived
-    ?`<span class="expbadge" title="off the feed since ${attr((o.archived_at||'').slice(0,10))}">expired</span>`:'';
-  return `<li class="of lb${o.bucket}${applied?' applied':''}${o.archived?' expired':''}" data-u="${attr(o.url)}">
-    <div class="row">
-      ${checkbox}
-      <span class="score">${o.score>0?'+':''}${o.score}</span>${o.score_override?'<span class="ovr" title="manual score">✎</span>':''}
-      ${title} ${site} ${newb} ${expb} ${meta} ${pill} ${mark}
-      <span class="caret">▸</span>
-    </div>
-    <div class="detail">${detailHtml(o)}</div>
-  </li>`;
-}
-
-// The paste-into-Cowork prompt for ONE offer. Mirrors orchestrator_instructions.md §3's
-// subagent task, minus the queue wrapper: read the two files, run mode review, this offer.
-function applyPrompt(o){
-  const offer={url:o.url, title:o.title, company:o.company,
-               location:(o.cities||[]).join(', '), stack:o.stack};
-  if(o.apply_method) offer.apply_method=o.apply_method;
-  if(o.apply_url)    offer.apply_url=o.apply_url;
-  return `You are the Applier. Apply to ONE job offer for Yan Lukashevich by driving his logged-in `
-    +`Chrome via the claude-in-chrome tools.\n\n`
-    +`Read and follow these two files in this folder, exactly:\n`
-    +`  - applier_instructions.md  (behavior, rules, the loop, logging)\n`
-    +`  - profile.md               (the sole source of truth for facts)\n\n`
-    +`Run mode: review   (fill everything, then STOP before the final Submit)\n\n`
-    +`The one offer to handle:\n${JSON.stringify(offer, null, 2)}\n\n`
-    +`Follow the playbook end to end, including appending your outcome to `
-    +`applications_log.jsonl (and todo_manual.md if blocked). Then report back with the exact `
-    +`JSON object you logged.`;
-}
-
-function detailHtml(o){
-  let h='';
-  if(o.archived) h+=`<div class="expnote">Expired — gone from every feed that carried it, since the harvest of
-    ${esc((o.archived_at||'').replace('T',' ').slice(0,16))}. Kept as history; the link is probably dead.</div>`;
-  h+=`<div class="skills">${esc(o.skills.join(' · '))||'—'}</div>`;
-  h+=`<div class="why">${whyHtml(o.why)}</div>`;
-  h+=srcLinks(o);
-  const a=o.application;
-  if(a){
-    const answers=(a.composed_answers||[]).filter(Boolean);
-    h+=`<dl>
-      <dt>applied</dt><dd class="out-${esc(a.outcome)}">${esc(a.outcome)} · ${esc(a.apply_type||'')}</dd>
-      <dt>when</dt><dd>${esc((a.timestamp||'').replace('T',' ').slice(0,19))}</dd>
-      <dt>CV used</dt><dd>${esc(a.cv_used||'—')}</dd>
-      ${a.blocked_reason?`<dt>blocked</dt><dd class="neg">${esc(a.blocked_reason)}</dd>`:''}
-    </dl>`;
-    if(answers.length){
-      h+=`<div class="cnt">free-text entered:</div>`;
-      h+=answers.map(t=>`<div class="freetext">${esc(typeof t==='string'?t:JSON.stringify(t))}</div>`).join('');
-    }
-    if(a.notes) h+=`<div class="notes">${esc(a.notes)}</div>`;
-  }else if(o.manual_at){
-    h+=`<dl><dt>applied by me</dt><dd>${esc(o.manual_at.replace('T',' ').slice(0,19))}</dd></dl>`;
-  }else{
-    h+=`<div class="cnt" style="margin-top:6px">not applied yet</div>`;
-  }
-  h+=`<div class="scoreedit">
-    <div class="head cnt">Adjust score &amp; reason (overrides the auto score for sorting and display):</div>
-    <div class="scorerow">
-      <input type="number" class="scoreinput" data-u="${attr(o.url)}" value="${o.score}" step="1">
-      <textarea class="scorereason" data-u="${attr(o.url)}" placeholder="why this score? (your note)">${esc(o.score_reason||'')}</textarea>
-      <button class="scorebtn" data-u="${attr(o.url)}">Save</button>
-    </div>
-    ${o.score_override?`<div class="scoremeta">manual override · auto score was ${o.base_score>0?'+':''}${o.base_score}</div>`:''}
-  </div>`;
-  h+=`<div class="applyprompt">
-    <div class="head">
-      <div class="cnt">Cowork prompt — paste into a fresh Cowork agent to apply to this one offer:</div>
-      <button class="copybtn" data-u="${attr(o.url)}">Copy prompt</button>
-    </div>
-    <pre class="prompt">${esc(applyPrompt(o))}</pre>
-  </div>`;
-  return h;
-}
-
 // company-size filter: does a company with n offers (in scope) match the selector?
 function sizeMatch(n, v){
   if(v==='0') return true;          // any size
@@ -486,7 +274,7 @@ function render(){
         ${big?`<span class="co-warn">many openings — pick the best 1–2</span>`:''}
         ${(collapsible&&!expanded)?`<span class="more">+${hidden} more ▾</span>`:''}
       </div>
-      <ul class="offers">${shown.map(offerLi).join('')}</ul>
+      <ul class="offers">${shown.map(o=>offerLi(o,SEL)).join('')}</ul>
     </div>`;
   }).join('');
   updateWriteBtn();
@@ -517,59 +305,17 @@ document.getElementById('bkbar').addEventListener('click',e=>{
 document.getElementById('bklegend').addEventListener('click',e=>{
   const s=e.target.closest('span[data-b]'); if(s) toggleBucket(+s.dataset.b); });
 
-document.getElementById('list').addEventListener('click',async e=>{
-  const pick=e.target.closest('.pick');
-  if(pick){ e.stopPropagation();
-    if(pick.checked) SEL.add(pick.dataset.u); else SEL.delete(pick.dataset.u);
-    updateWriteBtn(); return; }
-  const mark=e.target.closest('.markbtn');
-  if(mark){ e.stopPropagation();
-    const r=await fetch('/api/manual',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({url:mark.dataset.u})});
-    const d=await r.json();
-    const o=OFFERS.find(x=>x.url===d.url);
-    if(o){ o.manual_at=d.manual_at;
-      o.applied_by = o.application ? 'bot' : (d.manual_at ? 'manual' : null);
-      if(o.applied_by) SEL.delete(o.url); }
-    render(); return; }
-  const sbtn=e.target.closest('.scorebtn');
-  if(sbtn){ e.stopPropagation();
-    const box=sbtn.closest('.scoreedit');
-    const score=parseInt(box.querySelector('.scoreinput').value,10);
-    if(Number.isNaN(score)){ alert('Score must be a whole number'); return; }
-    const reason=box.querySelector('.scorereason').value;
-    const url=sbtn.dataset.u;
-    const r=await fetch('/api/score',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({url, score, reason})});
-    const d=await r.json();
-    const o=OFFERS.find(x=>x.url===url);
-    // base_score already holds the auto score from /api/offers — never overwrite it here.
-    if(o){ o.score=d.score; o.score_reason=d.reason; o.score_override=true; o.score_at=d.at; }
-    sbtn.textContent='✓ Saved'; sbtn.classList.add('done');
-    // re-sort/relabel with the new score after a beat so the "✓ Saved" flash is visible
-    setTimeout(render,650);
-    return; }
-  const copy=e.target.closest('.copybtn');
-  if(copy){ e.stopPropagation();
-    const o=OFFERS.find(x=>x.url===copy.dataset.u);
-    if(o){
-      try{
-        await navigator.clipboard.writeText(applyPrompt(o));
-        const label=copy.textContent; copy.textContent='✓ Copied'; copy.classList.add('done');
-        setTimeout(()=>{copy.textContent=label; copy.classList.remove('done');},1800);
-      }catch(err){ alert('Copy failed: '+err.message); }
-    }
-    return; }
+// company headers are this page's own; the offer rows themselves are wired by offer.js, which
+// ignores clicks that land outside one.
+document.getElementById('list').addEventListener('click',e=>{
   const coh=e.target.closest('.co-head.clk');
-  if(coh){ const c=coh.dataset.co; COEXP.has(c)?COEXP.delete(c):COEXP.add(c); render(); return; }
-  // the detail body is for reading/copying -- a mouse-up ending a selection fires a click too,
-  // and toggling there would collapse the panel out from under the text you just highlighted
-  if(e.target.closest('.detail')) return;
-  const li=e.target.closest('li.of');
-  if(!li || e.target.closest('a')) return;
-  const s=window.getSelection();
-  if(s && !s.isCollapsed && s.toString().trim() && li.contains(s.anchorNode)) return;
-  li.classList.toggle('open');
+  if(coh){ const c=coh.dataset.co; COEXP.has(c)?COEXP.delete(c):COEXP.add(c); render(); }
+});
+wireOfferList(document.getElementById('list'), {
+  find:u=>OFFERS.find(x=>x.url===u),
+  refresh:render,
+  sel:SEL,
+  onSel:updateWriteBtn,
 });
 
 document.getElementById('write').addEventListener('click',async()=>{

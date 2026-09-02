@@ -214,8 +214,9 @@ def _last_harvest():
 
 # ---- API -----------------------------------------------------------------------------------
 
-@app.get("/api/offers")
-def api_offers():
+def _enriched_offers():
+    """The scored offers with everything the cockpit row needs joined on: manual score
+    overrides, bot log lines, manual marks, and the is_new flag."""
     bot = _bot_applications()
     manual = _manual()
     scores = _manual_scores()
@@ -248,7 +249,12 @@ def api_offers():
     for row in out:
         # "new" = first seen in the most recent Re-harvest run
         row["is_new"] = bool(new_at and row.get("added_at") == new_at)
-    return {"offers": out, "harvest": lh,
+    return out
+
+
+@app.get("/api/offers")
+def api_offers():
+    return {"offers": _enriched_offers(), "harvest": _last_harvest(),
             "generated": datetime.now(timezone.utc).isoformat()}
 
 
@@ -273,21 +279,15 @@ def api_harvest():
 
 @app.get("/api/harvest")
 def api_harvest_status():
-    """State for the harvest subpage: the last run, the recent run history, and the offers
-    that came in on the most recent run (so you can see exactly what's new)."""
+    """What the harvest runs did: the last one and the recent history.
+
+    Not the offers — the subpage groups the run's arrivals by company and shows each company's
+    other offers alongside them, so it needs the whole db anyway and reads /api/offers for it.
+    Every row there already carries `is_new`, so "what came in on the last run" has one
+    definition instead of two that can disagree."""
     lh = _last_harvest()
     history = _read_jsonl(HARVEST_LOG)
-    new_at = lh["at"] if lh else None
-    new_offers = []
-    if new_at:
-        for o in _scored_offers():
-            if o.get("added_at") == new_at:
-                new_offers.append({"title": o["title"], "company": o["company"],
-                                   "url": o["url"], "category": o["category"],
-                                   "sites": o["sites"],
-                                   "score": o["score"], "bucket_name": o["bucket_name"]})
-        new_offers.sort(key=lambda x: -x["score"])
-    return {"last": lh, "history": list(reversed(history))[:20], "new_offers": new_offers}
+    return {"last": lh, "history": list(reversed(history))[:20]}
 
 
 @app.get("/api/history")

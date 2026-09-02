@@ -52,7 +52,21 @@ button that re-pulls **both live feeds**. **Nothing is ever deleted:** an offer 
 feed is stamped `archived_at` on *that portal's* source entry, and only counts as expired once
 every portal carrying it has dropped it; one that reappears has the stamp cleared
 (`revived_at` records when). The subpage shows tiles (`+new`, expired, revived, in db, live,
-archived-total), a table of recent runs, and the list of offers that came in on the last run.
+archived-total), a table of recent runs, and everything that came in on the last run — the same
+expandable row as the cockpit (tick to pick, click to open, mark applied, adjust the score, copy
+the apply prompt), rendered by `static/offer.js` + `static/offer.css`, which both pages link so
+the row cannot drift between them.
+
+Those arrivals are **grouped by company**, the cockpit's grouping turned around: one block per
+company the run touched, showing *only* its new offers. The header answers what a new posting
+actually raises — `+N new`, how many offers the company has live, and `✓ applied N` if you have
+already been in touch. Click it to unfold the company's other offers (score-sorted, each with
+its own applied status); expired ones are left out unless you applied to them, since a dead link
+you already answered is the part of the history that matters. The page carries the cockpit's
+**Write worklist** button too, so a run's pick goes straight to `src/worklist.json` without a
+detour; it *replaces* the file, same as the cockpit's, and a new harvest clears the ticks.
+`GET /api/harvest` returns only the run stats — the offers come from `/api/offers`, whose
+`is_new` flag is the single definition of "came in on the last run".
 Back in the cockpit, freshly-harvested offers get a **new** stats tile and a `NEW` badge. This
 replaces running `harvest.py` by hand, though the CLI still works. Because archiving stamps
 rows that are already stored, `offers_db.jsonl` is written atomically (temp file + swap) — it
