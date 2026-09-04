@@ -95,6 +95,10 @@ time and writes `runner\data\applications_log.jsonl` and, for a blocked offer,
 `runner\data\todo_manual.md`.
 
 - **Sequential, never parallel** — two appliers would fight over the same Chrome tab.
+- The browser has a **second** permission gate no CLI flag reaches: the extension asks before
+  touching a domain it has not seen, which is every employer ATS. `run_batch.py` starts
+  `runner\permission_autoclick.py` to click that card and kills it when the batch ends
+  (`--no-autoclick` opts out; approvals go to `runner\data\autoclick.log`). ARCHITECTURE.md §5E.
 - `review` (default) = fill everything, **stop before final Submit**. `auto` = fill and submit.
 - The CV is attached by `tools/mcp_webfile` over raw CDP; `mcp__chrome__file_upload` is not in
   the applier's toolset at all. That is why Cowork is no longer required.
