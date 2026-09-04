@@ -9,7 +9,7 @@ pops up 24 times a day; that is also why auto_worklist.py keeps its own run log
 (finder/data/auto_worklist_log.jsonl) -- nothing is watching stdout.
 
     -Unregister   remove the task
-    -Now          run it once immediately after registering (overwrites src/worklist.json)
+    -Now          run it once immediately after registering (overwrites runner/data/worklist.json)
 
 Runs only while you are logged on, which is when the machine is on anyway, and means Windows
 never has to store your password. StartWhenAvailable catches up a run missed to sleep.
@@ -56,7 +56,7 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatt
               -MultipleInstances IgnoreNew
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
-  -Settings $settings -Description "Writes src/worklist.json: 5 unapplied offers from lone-posting companies." `
+  -Settings $settings -Description "Writes runner/data/worklist.json: 5 unapplied offers from lone-posting companies." `
   -Force | Out-Null
 
 Write-Host "registered: $TaskName"

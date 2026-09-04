@@ -28,7 +28,7 @@ from common import (DATA, OFFERS_DB, ROOT, clean_text, offer_id,  # noqa: E402
                     read_jsonl, write_jsonl)
 
 MANUAL = DATA / "manual_applied.json"
-LOG = ROOT / "src" / "applications_log.jsonl"
+LOG = ROOT / "runner" / "data" / "applications_log.jsonl"
 
 EMPTY = ("", "?", None)
 

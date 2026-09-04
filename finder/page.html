@@ -324,7 +324,7 @@ document.getElementById('write').addEventListener('click',async()=>{
     body:JSON.stringify({urls})});
   const d=await r.json();
   const b=document.getElementById('write');
-  b.textContent=`✓ wrote ${d.written} → src/worklist.json`;
+  b.textContent=`✓ wrote ${d.written} → runner/data/worklist.json`;
   setTimeout(updateWriteBtn,2500);
 });
 

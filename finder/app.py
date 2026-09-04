@@ -3,7 +3,7 @@
 Serves offers.html and a tiny JSON API that JOINS three files by offer URL:
   - finder/data/offers_db.jsonl   the offers (harvest.py writes it; rows are never deleted,
                                   vanished ones are stamped archived_at)
-  - src/applications_log.jsonl    what the BOT did (applier appends; append-only)
+  - runner/data/applications_log.jsonl   what the BOT did (run_batch.py appends; append-only)
   - finder/data/manual_applied.json   what YOU did by hand (mutable, toggle-able)
 
 The two write patterns are different on purpose. Automated runs append to the JSONL log
@@ -38,8 +38,8 @@ import harvest_pracuj                             # noqa: E402  pracuj.pl
 OFFERS_DB = HERE / "data" / "offers_db.jsonl"
 MANUAL = HERE / "data" / "manual_applied.json"
 MANUAL_SCORES = HERE / "data" / "manual_scores.json"   # url -> {score, reason, at} (your overrides)
-LOG = ROOT / "src" / "applications_log.jsonl"
-WORKLIST = ROOT / "src" / "worklist.json"
+LOG = ROOT / "runner" / "data" / "applications_log.jsonl"
+WORKLIST = ROOT / "runner" / "data" / "worklist.json"
 PAGE = HERE / "page.html"
 HARVEST_PAGE = HERE / "harvest.html"
 HISTORY_PAGE = HERE / "history.html"
@@ -390,7 +390,7 @@ class WorklistBody(BaseModel):
 
 @app.post("/api/worklist")
 def api_worklist(body: WorklistBody):
-    """Write the picked offers to src/worklist.json in the shape the applier consumes."""
+    """Write the picked offers to runner/data/worklist.json in the shape the runner consumes."""
     by_url = _by_any_url()
     items = []
     for u in body.urls:

@@ -17,7 +17,7 @@ from pathlib import Path
 from attach import CdpError, attach_file, page_session
 
 TAB = "test_form.html"
-CV = Path(__file__).resolve().parents[2] / "src/CV_PDF/CV_Yan_Lukashevich_universal/CV_Yan_Lukashevich.pdf"
+CV = Path(__file__).resolve().parents[2] / "src/CV_PDF/CV_Yan_Lukashevich_uniwersalne/CV_Yan_Lukashevich.pdf"
 
 # The clear matters: setting a file an input already holds is not a change, and fires nothing.
 WATCH = """(() => {

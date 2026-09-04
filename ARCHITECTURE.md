@@ -44,10 +44,11 @@ apply step can be run and reviewed separately.
 - **Dedup:** the cockpit joins `applications_log.jsonl` (bot) and `manual_applied.json` (you)
   onto each offer as a visible **applied** status, so already-applied offers are skipped by
   the human at pick time — no automatic set-filter (that was `legacy/build_worklist.ps1`).
-- **Output:** `src/worklist.json` — written straight from the cockpit's picks.
+- **Output:** `runner/data/worklist.json` — written straight from the cockpit's picks.
 
 ### 3.2 Applier
-- **Input:** `worklist.json` + `profile.md` + `applier_instructions.md` + CV file(s).
+- **Input:** one offer, handed to it in the task prompt by the runner, + `profile.md` +
+  `applier_instructions.md` + CV file(s). It never sees the queue or the log.
 - **Job:** fully autonomous across **all** apply variants:
   - internal justjoin.it apply modal,
   - external ATS (Greenhouse / Lever / Workable / SmartRecruiters / …),
@@ -64,10 +65,10 @@ apply step can be run and reviewed separately.
 | `profile.md` | **The facts** — source of truth for all factual answers. |
 | `applier_instructions.md` | **The behavior** — how Claude fills forms and composes answers. |
 | `cv/` | The CV file(s), possibly variants per stack. |
-| `applications_log.jsonl` | Audit trail of every outcome; also the anti-double-apply record. |
+| `runner/data/applications_log.jsonl` | Audit trail of every outcome; also the anti-double-apply record. |
 | `finder/data/offers_db.jsonl` | Every offer ever harvested; the finder's source of truth. |
-| `worklist.json` | Finder cockpit output; applier input (the offers picked for this batch). |
-| `todo_manual.md` | Offers the tool could not finish, with URL + reason, for manual handling. |
+| `runner/data/worklist.json` | Finder cockpit output; runner input (the offers picked for this batch). |
+| `runner/data/todo_manual.md` | Offers the tool could not finish, with URL + reason, for manual handling. |
 
 ### 4.1 `profile.md` (facts only)
 Personal details, contacts, links (LinkedIn/GitHub/portfolio), CV path, experience,
@@ -136,10 +137,10 @@ open offer URL
  → read the form (structured text, not pixels)
  → map each field → profile value | compose free-text | mark unknown
  → fill fields + upload CV
- → blocked? (captcha / forced register / missing hard-fact) → log to todo_manual, next
+ → blocked? (captcha / forced register / missing hard-fact) → report it, next
  → submit (review-mode: stop) OR (auto-mode: click)
  → verify success (confirmation text / URL change)
- → write outcome to applications_log.jsonl
+ → return the outcome as JSON; the runner writes applications_log.jsonl
  → next offer
 ```
 
@@ -148,17 +149,17 @@ Components:
 | # | Component | Responsibility | Main tools |
 |---|-----------|----------------|-----------|
 | 0 | Finder cockpit | harvest, score, join applied-status, human picks → `worklist.json` | `finder/` (Python, §5C) |
-| 1 | Orchestrator | read `worklist.json`, spawn one subagent per offer, pace, verify logs | Cowork parent agent (§5C) |
+| 1 | Runner | read `worklist.json`, launch one applier per offer, write the log | `runner/run_batch.py` (Python, §5C) |
 | 2 | Navigator | open offer, click Apply, follow redirects/new tabs | `navigate`, `tabs_*`, `find` |
 | 3 | Apply-type detector | classify page into one of 5 types | `get_page_text`, `find` |
 | 4 | State reader | extract current form structure/fields | `get_page_text`, `read_page` |
 | 5 | Field mapper | form field → `profile.md` value; flag unknowns | reasoning |
 | 6 | Answer composer | free-text from profile + job desc, in form's language | reasoning |
-| 7 | Form filler | type values, select options, upload CV | `find`→`computer` (`ref`), `form_input`, `file_upload` |
+| 7 | Form filler | type values, select options, attach CV | `find`→`computer` (`ref`), `form_input`, `mcp__webfile__attach_file` |
 | 8 | Blocker detector | captcha / register-wall / missing-fact → route out | `get_page_text`, `find` |
 | 9 | Submitter | review-mode stop, or auto-submit click | `find` → `computer left_click ref=…` (see 5B) |
 | 10 | Verifier | confirm submission went through | `get_page_text` |
-| 11 | Logger | append `applications_log.jsonl` + `todo_manual.md` | file writes |
+| 11 | Logger | the applier returns JSON; the runner writes both files | `--json-schema`, `runner/run_batch.py` |
 
 "Building" these means producing: the **playbook**, the **data schemas**, and a few
 **reusable JS snippets** (dump all form fields as JSON, detect captcha nodes) run via
@@ -243,48 +244,62 @@ re-loads the playbook each time (small extra tokens). **Decision: one fresh agen
 offer** — robustness outweighs the re-load cost, and it maps cleanly to "each offer is
 independent."
 
-**Where it runs changed, the model did not.** The applier must run under **Cowork** (the
-desktop app's local agent mode), because only Cowork's `claude-in-chrome` server can attach
-a CV — it reads the file host-side and sends the extension base64 bytes, while the standalone
-CLI forwards raw paths that the extension now rejects (measured 2026-07: same `file_upload`
-tool name, different implementation — the CLI's forwards the path, Cowork's reads the bytes).
+**Where it runs changed twice; the model did not.** From 2026-07 it ran under **Cowork** (the
+desktop app's local agent mode), because only Cowork's `claude-in-chrome` server could attach a
+CV — it read the file host-side and sent the extension base64 bytes, while the CLI forwards
+raw paths the extension rejects. **That constraint is gone as of 2026-09:** `tools/mcp_webfile`
+attaches the file over raw CDP (`DOM.setFileInputFiles`, `isTrusted=true` — §5B), so the plain
+CLI is enough and the orchestrator *agent* is replaced by `runner/run_batch.py`. Full reasoning
+in `docs/COWORK_TO_CLAUDE_CODE.md`.
 
-Cowork is one long-lived session, which naively would have destroyed the per-offer isolation
-above. It does not, because **Cowork can spawn subagents** (verified 2026-07-09: subagents
-spawn, and `file_upload` works inside them). So the model survives intact:
+Per-offer isolation is now the default rather than something a long-lived session had to be
+talked into: each offer is a separate OS process.
 
 ```
 finder/ cockpit                         CODE — deterministic, zero agent tokens
-  finder/data/offers_db.jsonl + src/applications_log.jsonl (joined for applied-status)
+  finder/data/offers_db.jsonl + runner/data/applications_log.jsonl (joined for applied-status)
   → score + human picks the unapplied ones
-  → src/worklist.json
+  → runner/data/worklist.json
 
-Cowork parent agent = Orchestrator      PROSE — src/orchestrator_instructions.md
-  reads worklist.json (never re-filters it)
+runner/run_batch.py = Runner            CODE — deterministic, zero agent tokens
+  reads runner/data/worklist.json (never re-filters it)
+  brings up the chrome-mcp profile if CDP port 9222 is silent
   for each offer, sequentially:
-      spawn a FRESH subagent  ← the per-offer isolation of this section
-        subagent reads applier_instructions.md + profile.md
+      launch a FRESH `claude -p`  ← the per-offer isolation of this section
+        applier reads applier_instructions.md + profile.md
         drives one application in Chrome (isTrusted=true, §5B — same extension)
-        uploads the CV (works here; fails under the CLI)
-        appends its outcome to applications_log.jsonl
-      verify the log line landed; pause 5–10 s
+        attaches the CV via mcp_webfile (raw CDP; also isTrusted=true)
+        RETURNS one JSON object (runner/log_line.schema.json, enforced by --json-schema)
+      the runner stamps the time and writes runner/data/applications_log.jsonl / todo_manual.md
 ```
 
-This is **strictly better than the old CLI `run_applier.ps1` loop** (now removed): same
-isolation, plus a working CV upload.
+The applier's launch line carries no write tools at all (`--tools Read Glob`), so a half-written
+log line stopped being a failure mode, and the timestamp now comes from the Windows clock
+instead of a Linux VM's UTC.
 
-### The mount boundary (§5D)
-Cowork mounts **exactly one folder** and cannot read or write above it (measured 2026-07-10: a
-session connected to a subfolder could not see its parent, and no `CLAUDE.md` was loaded). The
-runtime files therefore live in **`src/`**, which is the folder the user connects; the design
-docs and the whole `finder/` (its offer DB included) stay in the root, outside the agent's
-filesystem.
+### The boundary (§5D) — flags, not a mount
+Cowork's mount was a hard filesystem boundary (measured 2026-07-10: a session connected to a
+subfolder could not see its parent, and no `CLAUDE.md` was loaded). The CLI's equivalent is the
+launch line:
 
-This converts three prompt rules into geometry. "Do not read the offer DB" and the
-CLAUDE.md context tax both disappear — the files are simply unreachable. What geometry cannot
-express is `applications_log.jsonl`: it is an output, so it lives inside the mount, and the
-orchestrator must read its last line to verify each outcome. Forbidden for dedup, required for
-verification — a boundary is binary, so that one stays prose.
+```
+--setting-sources ""     no CLAUDE.md, no user settings, no user-scope MCP servers
+--mcp-config ...         chrome + webfile - mandatory, since the line above dropped them
+--tools Read Glob        built-ins only: no Write, no Edit, no Bash
+CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+```
+
+Measured surface (2026-09-02): `Read`, `Glob`, 21 `mcp__chrome__*`, both `mcp__webfile__*`.
+Nothing else. This is **weaker in one direction and stronger in the other** than the mount: the
+applier can now *read* above `src/` (so keeping the offer DB, the queue and the log out of it is
+a token argument, not a wall), but it cannot *write* anywhere at all. The `applications_log.jsonl`
+rule that no folder layout could express simply disappears — the applier returns JSON, the runner
+writes. `src/` now holds prompts and CVs only; the queue, the audit trail and the manual to-do
+list live in `runner/data/` with the code that owns them.
+
+One residual leak the mount did not have: cwd is a git repo, so a git-status snapshot (branch +
+recent commit subjects) is still injected. Harmless for applying, but it is not literally zero
+context.
 
 ### Division of labour: code vs. prose
 Deterministic work belongs in code; only reasoning belongs in an agent's context. An LLM
@@ -294,19 +309,21 @@ cannot. Hence:
 | Concern | Lives in | Why |
 |---|---|---|
 | harvest, scoring, applied-status, worklist write | `finder/` (Python) | deterministic, exact, free |
-| loop, subagent spawning, pacing, log verification | `orchestrator_instructions.md` | needs agent tools |
+| loop, process launch, pacing, log writing | `runner/run_batch.py` (Python) | deterministic |
 | form filling, free-text, blockers | `applier_instructions.md` | needs reasoning |
 | facts | `profile.md` | unchanged by runtime |
 
 ### Two traps this model must respect
-1. **The sandboxed shell.** Cowork's bash runs in a throwaway Linux VM. Whether writes to the
-   mounted folder propagate back to Windows is **unverified**; a `>>` / `echo` redirect may be
-   silently discarded. Logs must be written with the **file tools**, which always land. Stated
-   in `orchestrator_instructions.md` §4 and `applier_instructions.md` §9 — deliberately phrased
-   so it holds either way, so the question never has to be settled.
-2. **Never drive the applier from the CLI.** Anything launching `claude -p` (the old
-   `run_applier.ps1`, now removed) hits the broken upload path and silently fails to attach a
-   CV. The applier runs only under Cowork.
+1. ~~**The sandboxed shell.**~~ **Resolved 2026-09 by deleting the problem:** the applier has
+   no shell and no write tools, so nothing it writes can be silently discarded, because it
+   writes nothing. `run_batch.py` writes both files on Windows directly.
+2. ~~**Never drive the applier from the CLI.**~~ **Reversed 2026-09:** the CLI is now the only
+   way it runs. The trap was real while `mcp__chrome__file_upload` was the sole upload path —
+   the CLI's implementation forwards raw paths the extension rejects. `mcp_webfile` bypasses
+   that tool entirely, and `file_upload` is not even in the applier's toolset.
+3. **A missing log line is worse than a wrong one.** The log is the anti-double-apply record,
+   so an applier that dies, times out or returns nothing still gets a line — the runner writes
+   `blocked` / `applier-failure`.
 
 ### Pacing
 Inter-offer delay is **5–10 s**, not the old 90 s jitter. Each application already takes 2–5

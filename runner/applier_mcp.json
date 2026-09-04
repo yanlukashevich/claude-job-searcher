@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "chrome": {
+      "type": "stdio",
+      "command": "C:\\Users\\yanlu\\.local\\bin\\claude.exe",
+      "args":  ["--claude-in-chrome-mcp", "--dangerously-skip-permissions"],
+      "env": {}
+    },
+    "webfile": {
+      "type": "stdio",
+      "command": "c:\\Users\\yanlu\\prog\\claude_job_seracher\\.venv\\Scripts\\python.exe",
+      "args": [
+        "c:\\Users\\yanlu\\prog\\claude_job_seracher\\tools\\mcp_webfile\\server.py"
+      ],
+      "env": {}
+    }
+  }
+}

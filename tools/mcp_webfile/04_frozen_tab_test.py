@@ -34,7 +34,7 @@ import websockets
 from attach import CDP_URL, CdpError, _http_json, attach_file, pick_target
 
 TAB = "test_form.html"
-CV = Path(__file__).resolve().parents[2] / "src/CV_PDF/CV_Yan_Lukashevich_universal/CV_Yan_Lukashevich.pdf"
+CV = Path(__file__).resolve().parents[2] / "src/CV_PDF/CV_Yan_Lukashevich_uniwersalne/CV_Yan_Lukashevich.pdf"
 
 
 def _http(path, method):

@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "applications_log line (without timestamp)",
+  "description": "One application outcome. The runner adds `timestamp` and writes the line; the applier never touches the file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "url",
+    "company",
+    "title",
+    "apply_type",
+    "outcome",
+    "cv_used",
+    "composed_answers",
+    "blocked_reason",
+    "notes",
+    "diagnostics"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The offer URL exactly as given to you in the offer object."
+    },
+    "company": { "type": "string" },
+    "title": { "type": "string" },
+    "apply_type": {
+      "type": "string",
+      "enum": ["internal", "external_ats", "custom", "register", "captcha"],
+      "description": "internal = the portal's own form (justjoin modal, pracuj form); rest as named."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["applied_clean", "applied_composed", "filled_review", "blocked"],
+      "description": "applied_clean = all fields mapped directly, submitted; applied_composed = submitted, >=1 composed free-text; filled_review = filled, stopped for review; blocked = a playbook section 8 trigger."
+    },
+    "cv_used": {
+      "type": "string",
+      "description": "Repo-relative path of the PDF you attached, e.g. CV_PDF/CV_Yan_Lukashevich_python_ai/CV_Yan_Lukashevich_EN.pdf. Empty string if none was attached."
+    },
+    "composed_answers": {
+      "type": "array",
+      "description": "Every free-text you wrote, verbatim, even in review mode. [] if none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "text"],
+        "properties": {
+          "field": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "blocked_reason": {
+      "type": ["string", "null"],
+      "description": "null unless outcome is blocked. Then one of: captcha | register | missing-fact: <field name> | dead-link"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Short: what happened, anything the user should know."
+    },
+    "diagnostics": {
+      "type": "object",
+      "description": "Required on every line - production's only health signal. Terse and factual, never prose.",
+      "additionalProperties": false,
+      "required": ["ats", "workarounds", "left_blank"],
+      "properties": {
+        "ats": {
+          "type": "string",
+          "description": "The form vendor: internal | eRecruiter | Traffit | tomHRM | Workday | ..."
+        },
+        "workarounds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "One short line per stall + how you cleared it. [] if none."
+        },
+        "left_blank": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional fields you deliberately skipped. [] if none."
+        }
+      }
+    }
+  }
+}

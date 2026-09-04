@@ -35,20 +35,15 @@ The form is Polish → answer in Polish (the CV language still follows the offer
 
 ## File input trapped in a same-origin `<iframe>` (seen on Symfonia HR)
 
-**Symptom:** `file_upload` errors "Element is not a file input", or `find` only turns up an
-`<input type=text>` proxy. The accessibility tree does not descend into the iframe, so
-`find` / `read_page` cannot see the real control.
+**Symptom:** `find` / `read_page` only turn up an `<input type=text>` proxy — the accessibility
+tree does not descend into the iframe, so you cannot see the real control.
 
 **Do not** click the visible "choose file" button — it opens a native OS picker you cannot
 operate.
 
-**Fix**, with `javascript_tool` (the iframe is same-origin and the file is the user's own):
-
-1. Grab the input and **save its parent + next sibling**:
-   `document.getElementById('iframe_...').contentDocument.querySelector('input[type=file]')`
-2. Give it an `id`, then `document.body.appendChild(...)` to lift it into the **top** document.
-3. `find` it there and `file_upload` the CV onto that ref (this sets `input.files`).
-4. Move it **back** to the saved parent/sibling; clear the temporary `id` and any styles.
-5. Dispatch `input` then `change` on it so the iframe's own uploader runs natively.
+**This is not a special case any more.** `mcp__webfile__attach_file` searches every frame of the
+tab, so call it exactly as playbook §7 says; the string it returns ends with `(iframe frame)` when
+the input it filled was in one. If several inputs match, `mcp__webfile__find_file_inputs` lists
+them with their frame and the `nth` to use.
 
 **Confirm** by the attached filename and size appearing on the form (e.g. `CV_….pdf (97kB)`).

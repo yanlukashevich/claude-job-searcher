@@ -17,7 +17,7 @@ from attach import attach_file, describe_inputs, page_session, text_of
 TAB = "test_form.html"
 
 DEFAULT_FILE = (Path(__file__).resolve().parents[2]
-                / "src/CV_PDF/CV_Yan_Lukashevich_universal/CV_Yan_Lukashevich.pdf")
+                / "src/CV_PDF/CV_Yan_Lukashevich_uniwersalne/CV_Yan_Lukashevich.pdf")
 
 CASES = [
     ("1 plain visible input", "#plain", "#out-plain"),

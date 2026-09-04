@@ -14,7 +14,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 HERE = Path(__file__).resolve().parent
-CV = HERE.parents[1] / "src/CV_PDF/CV_Yan_Lukashevich_universal/CV_Yan_Lukashevich.pdf"
+CV = HERE.parents[1] / "src/CV_PDF/CV_Yan_Lukashevich_uniwersalne/CV_Yan_Lukashevich.pdf"
 
 
 def text_of(result):

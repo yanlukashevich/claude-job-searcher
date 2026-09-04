@@ -10,9 +10,9 @@ Cowork. Plain terminal in the project root.
 1. harvest.py          CODE  justjoin API   -> data/offers_db.jsonl (facts; adds new, archives gone)
    harvest_pracuj.py   CODE  pracuj listing -> the same file, same row shape
 2. app.py       CODE  serves the cockpit: joins offers_db + bot log + your manual
-                      marks, groups by company, writes src/worklist.json
+                      marks, groups by company, writes runner/data/worklist.json
 3. (you) review the cockpit, pick 1-2 per company, hit "Write worklist"
-4. Cowork applier reads src/worklist.json, appends to applications_log.jsonl
+4. Cowork applier reads runner/data/worklist.json, appends to applications_log.jsonl
 ```
 
 Scoring is a **keyword classifier**, not judgment: code decides facts (is a keyword
@@ -40,7 +40,7 @@ company; a company with many openings is flagged so you review and pick the best
 of spraying CVs. Click any row to expand what happened — the CV used, the free-text the bot
 entered, the outcome, the full notes. Each offer carries a live status: **bot** (from the
 append-only log) or **applied by me** (your manual toggle). Tick offers → **Write worklist**
-drops them straight into `src/worklist.json` for the Cowork applier. No file downloads.
+drops them straight into `runner/data/worklist.json` for the Cowork applier. No file downloads.
 
 Every expanded offer also carries a **Copy prompt** button: a ready-to-paste, single-offer
 Cowork prompt (read `applier_instructions.md` + `profile.md`, run mode `review`, this offer's
@@ -63,7 +63,7 @@ actually raises — `+N new`, how many offers the company has live, and `✓ app
 already been in touch. Click it to unfold the company's other offers (score-sorted, each with
 its own applied status); expired ones are left out unless you applied to them, since a dead link
 you already answered is the part of the history that matters. The page carries the cockpit's
-**Write worklist** button too, so a run's pick goes straight to `src/worklist.json` without a
+**Write worklist** button too, so a run's pick goes straight to `runner/data/worklist.json` without a
 detour; it *replaces* the file, same as the cockpit's, and a new harvest clears the ticks.
 `GET /api/harvest` returns only the run stats — the offers come from `/api/offers`, whose
 `is_new` flag is the single definition of "came in on the last run".
@@ -86,7 +86,7 @@ Three files, three owners, joined by offer URL:
 | file | who writes it | how |
 |---|---|---|
 | `data/offers_db.jsonl` | `harvest.py` / Re-harvest | atomic rewrite (temp + swap): adds new rows, stamps `archived_at` on vanished ones |
-| `../src/applications_log.jsonl` | the Cowork applier | append-only (crash-safe) |
+| `../runner/data/applications_log.jsonl` | `runner/run_batch.py` | append-only (crash-safe) |
 | `data/manual_applied.json` | you, via the cockpit | mutable dict, toggle on/off |
 
 **Superseded:** `prototype/browse.py` (static triage page, applied-state in localStorage) and
@@ -170,7 +170,7 @@ offers.
   feed no longer carries gets `archived_at` on that source even while the offer stays live, so
   the cockpit links somewhere that still works; the offer expires only once every link has.
 - Anti-double-apply now lives in the cockpit, not in a script: every offer carries a live
-  **applied** status joined from `src/applications_log.jsonl` (bot) and `manual_applied.json`
+  **applied** status joined from `runner/data/applications_log.jsonl` (bot) and `manual_applied.json`
   (you), so you skip the ones already done when you pick. It is a human-in-the-loop check, not
   the old automatic set-filter — the deprecated `legacy/build_worklist.ps1` did that. The join
   is over **every** URL the offer has ever had, not the one currently displayed — otherwise a

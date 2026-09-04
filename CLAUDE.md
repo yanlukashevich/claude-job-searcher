@@ -13,27 +13,30 @@ review mode) per `ARCHITECTURE.md` §6.
 
 ## Layout — the `src/` boundary is load-bearing
 
-Cowork mounts **exactly one folder**, and that mount is a hard filesystem boundary: the agent
-cannot see, read, or write anything above it. So the runtime files live in `src/`, and
-everything the agent has no business touching stays out of it.
+`src/` is the applier's working directory and the only folder it has any business in. The
+boundary used to be a Cowork mount; it is now the launch line in `runner/run_batch.py`
+(`--setting-sources ""`, `--tools Read Glob`, `cwd=src`), which injects no `CLAUDE.md` and
+hands the agent no way to write at all. The layout still matters, for a different reason:
+every token in `src/` is paid once per offer.
 
 ```
-claude_job_seracher/          <- never mounted; invisible to the agent
+claude_job_seracher/          <- outside the applier's working directory
   CLAUDE.md  ARCHITECTURE.md  README.md
   finder/                     <- offer collection + triage + worklist (Python cockpit)
+  runner/                     <- run_batch.py: launches one applier per offer, writes the log
+    data/                     <- worklist.json, applications_log.jsonl, todo_manual.md
   docs/                       <- JUSTJOIN_API_NOTES.md and design notes
   legacy/                     <- frozen, superseded PowerShell pipeline
   trainer/                    <- prompt-optimization loop (its own Cowork mount)
-  src/                        <- Cowork mounts THIS
-    orchestrator_instructions.md   applier_instructions.md   profile.md
-    portal_quirks.md   ats_quirks.md
-    worklist.json  applications_log.jsonl  todo_manual.md  CV_PDF/
+  src/                        <- the applier's cwd; prompts and CVs only, nothing it can act on
+    applier_instructions.md   profile.md
+    portal_quirks.md   ats_quirks.md   CV_PDF/
 ```
 
-This replaces prose with geometry. The finder, its offer database and `CLAUDE.md` are all out
-of reach, so nothing has to tell the orchestrator not to read them, and `CLAUDE.md` is not
-injected into every subagent. **Keep it that way** — a file moved into `src/` is a file the
-agent will find, and every extra token in there is paid once per subagent.
+`--tools Read Glob` means the applier *can* read anything it can reach, so keeping the finder's
+offer database out of `src/` still does work — but it is now a token and attention argument,
+not a wall. **Keep it that way** — a file moved into `src/` is a file the agent will find,
+and every extra token in there is paid once per offer.
 
 `portal_quirks.md` and `ats_quirks.md` are the pressure valve for that last rule. Per-form
 recipes are long and each is needed on a minority of offers, so carrying them in the playbook
@@ -43,10 +46,11 @@ first and opens **one** of the two files. Anything true of one vendor's form and
 general belongs in one of them, not in the playbook. Keep them split for the same reason: merged,
 a portal offer would pay for Workday recipes it will never use.
 
-`applications_log.jsonl` is the exception. It is an *output*, so it must be inside the mount,
-and the orchestrator must read its last line to verify each outcome. That rule is conditional
-on purpose — forbidden for dedup, required for verification — so no folder layout can encode
-it, and it stays as prose in `orchestrator_instructions.md` §1 and §5.
+The queue and the audit trail live in `runner/data/`, not in `src/`, and that is what keeps the
+playbook free of rules about them. Code writes and reads both; the applier is handed its one
+offer in the task prompt and returns a JSON object. When `worklist.json` sat in the applier's
+cwd it had to be told "never read it" — and a log in reach still pulled appliers into checking
+for duplicates themselves. Out of reach, neither line has to be written or paid for per offer.
 
 ## The two-brain split (do not merge these)
 
@@ -73,41 +77,52 @@ both links, marked `jp` in the cockpit. The CLI harvesters (`harvest.py`, `harve
 re-pull a single portal when one needs debugging.
 
 The cockpit shows each offer's **applied** status (bot log + your manual marks), so you pick the
-unapplied ones; **Write worklist** drops them into `src\worklist.json`. There is no daily cap —
-how many you tick is the only throttle.
+unapplied ones; **Write worklist** drops them into `runner\data\worklist.json`. There is
+no daily cap — how many you tick is the only throttle.
 
-**2. PROSE** — open the **Claude desktop app (Cowork)**, connect the **`src/` folder** (not the
-project root), and give it `orchestrator_instructions.md` as the task. It reads `worklist.json`
-and spawns one fresh subagent per offer, each reading `applier_instructions.md` + `profile.md`
-and driving one application.
+```powershell
+# 2. RUNNER - one applier per offer, sequentially. See runner/README.md.
+python runner\run_batch.py --dry-run          # print the queue and the exact launch line
+python runner\run_batch.py --mode review      # fill everything, stop before Submit (default)
+python runner\run_batch.py --mode auto
+```
 
-- **It must run in Cowork, not the CLI.** Only Cowork's `claude-in-chrome` server can attach a
-  CV (reads the file host-side → base64); the CLI forwards raw paths, which the extension
-  rejects.
-- `review` mode (default) = fill everything, **stop before final Submit**. `auto` = fill and
-  submit.
+`run_batch.py` reads `runner\data\worklist.json` (never re-filters it), brings up the
+`chrome-mcp` profile if CDP port 9222 is silent, and runs one `claude -p` per offer with
+`cwd=src`. The applier reads `applier_instructions.md` + `profile.md`, drives one application,
+and **returns** a JSON object matching `runner/log_line.schema.json`; the runner stamps the
+time and writes `runner\data\applications_log.jsonl` and, for a blocked offer,
+`runner\data\todo_manual.md`.
+
+- **Sequential, never parallel** — two appliers would fight over the same Chrome tab.
+- `review` (default) = fill everything, **stop before final Submit**. `auto` = fill and submit.
+- The CV is attached by `tools/mcp_webfile` over raw CDP; `mcp__chrome__file_upload` is not in
+  the applier's toolset at all. That is why Cowork is no longer required.
 
 ## Data flow
 
 ```
 finder/harvest.py + harvest_pracuj.py  →  finder/data/offers_db.jsonl   (every offer ever seen)
    → finder cockpit (app.py)  CODE: score + join applied-status; you pick
-      → src/worklist.json
-         → Cowork orchestrator  (trusts worklist, never re-filters)
-            → one fresh subagent per offer  (applier_instructions.md + profile.md)
-               → applies via Claude-in-Chrome, uploads CV
-                  → applications_log.jsonl   (append-only audit trail)
-                  → todo_manual.md           (blocked offers only)
+      → runner/data/worklist.json
+         → runner/run_batch.py  (trusts worklist, never re-filters)
+            → one fresh `claude -p` per offer  (applier_instructions.md + profile.md)
+               → applies via Claude-in-Chrome, attaches the CV via mcp_webfile
+               → returns one JSON object  (runner/log_line.schema.json)
+                  → runner/data/applications_log.jsonl  (append-only audit trail)
+                  → runner/data/todo_manual.md          (blocked offers only)
+                  → runner/data/run_log.jsonl           (per-launch diagnostics)
 ```
 
 `applications_log.jsonl` is the anti-double-apply record: the cockpit joins it back onto the
 offer list so already-applied offers are visibly marked. The old set-based dedup lived in
-`legacy/build_worklist.ps1` (frozen). The applier still must not read the log for dedup —
-only to verify each outcome.
+`legacy/build_worklist.ps1` (frozen). A **missing** line is the one unacceptable outcome, so an
+applier that dies, times out or returns nothing still gets one — written by the runner as
+`blocked` / `applier-failure`.
 
 ## Editing the prompts
 
-The markdown in `src/` is the program, and its token count is paid once per subagent. The full
+The markdown in `src/` is the program, and its token count is paid once per offer. The full
 working note is `docs/PROMPT_EDITING.md` — hand it to a session that is about to edit a prompt.
 Two rules, both learned the hard way:
 

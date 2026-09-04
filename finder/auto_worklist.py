@@ -1,6 +1,6 @@
 """The cockpit's "Write worklist" button, without the human. Run hourly by Task Scheduler.
 
-Picks 5 offers and writes src/worklist.json exactly as clicking the button would. The rules
+Picks 5 offers and writes runner/data/worklist.json exactly as clicking the button would. The rules
 it stands in for -- the ones you apply by eye when you tick boxes:
 
   live          not expired (every portal carrying it has dropped it -> skip)
@@ -20,7 +20,7 @@ __main__), so this stays a plain offline script: it reads the db harvest.py alre
 never touches the network.
 
   python finder/auto_worklist.py --dry-run     # show the picks, write nothing
-  python finder/auto_worklist.py               # write src/worklist.json
+  python finder/auto_worklist.py               # write runner/data/worklist.json
 """
 import argparse
 import collections

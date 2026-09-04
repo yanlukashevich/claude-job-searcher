@@ -37,7 +37,7 @@
     <span class="status" id="status"></span>
     <span style="margin-left:auto"></span>
     <button class="tool primary" id="write" disabled
-      title="Replaces src/worklist.json with the offers ticked below — same button as the cockpit's.">Write worklist (0)</button>
+      title="Replaces runner/data/worklist.json with the offers ticked below — same button as the cockpit's.">Write worklist (0)</button>
     <button class="tool" id="clearsel">clear</button>
   </div>
 </header>
@@ -212,7 +212,7 @@ document.getElementById('write').addEventListener('click',async()=>{
     body:JSON.stringify({urls:[...SEL]})});
   const d=await r.json();
   const b=document.getElementById('write');
-  b.textContent=`✓ wrote ${d.written} → src/worklist.json`;
+  b.textContent=`✓ wrote ${d.written} → runner/data/worklist.json`;
   setTimeout(updateWriteBtn,2500);
 });
 
