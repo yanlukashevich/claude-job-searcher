@@ -6,6 +6,9 @@ __pycache__/
 scan_pracuj/*
 
 docs/*
+# ...except the README's pipeline diagram, which GitHub has to be able to serve.
+!docs/pipeline-light.svg
+!docs/pipeline-dark.svg
 
 # Backups (scripts write .bak next to their output)
 *.bak
