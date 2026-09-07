@@ -28,10 +28,12 @@ from pydantic import BaseModel
 HERE = Path(__file__).resolve().parent           # finder/
 sys.path.insert(0, str(HERE))                    # common
 sys.path.insert(0, str(HERE / "prototype"))      # scoring, keywords
+sys.path.insert(0, str(HERE.parent / "runner"))  # stats (run diagnostics)
 
 from common import (ROOT, HARVEST_LOG, LAST_HARVEST,   # noqa: E402
                     canonical_names, log_run, merge, norm_company, write_jsonl)
 from scoring import classify, BUCKETS            # noqa: E402
+import stats                                     # noqa: E402  runner/stats.py
 import harvest                                    # noqa: E402  justjoin
 import harvest_pracuj                             # noqa: E402  pracuj.pl
 
@@ -339,6 +341,15 @@ def api_history():
     events.sort(key=lambda e: e.get("at") or "", reverse=True)
     return {"events": events, "count": len(events),
             "generated": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/api/run")
+def api_run(url: str, at: str = ""):
+    """What one logged application cost to produce: the runner's envelope numbers joined to the
+    applier's transcript (`runner/stats.py`). Fetched when a history row is opened, not with the
+    list -- a transcript runs to megabytes and most log lines predate run_log.jsonl anyway, so
+    paying for all of them up front would buy nothing."""
+    return {"run": stats.run_for(url, at)}
 
 
 class ManualBody(BaseModel):

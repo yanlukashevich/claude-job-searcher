@@ -73,8 +73,39 @@ unchanged.
 - The url is taken from the worklist, not from the applier — the cockpit joins the log onto the
   offer list by url. A mismatch is recorded in `runner\data\run_log.jsonl`.
 
-`runner\data\run_log.jsonl` gets one line per launch: exit code, duration, cost, session id,
-failure. Gitignored; it is diagnostics, not the audit trail.
+## Diagnostics: run_log.jsonl and stats.py
+
+`runner\data\run_log.jsonl` gets one line per launch, taken from the CLI's result envelope: exit
+code, wall clock, `duration_api_ms`, cost, the token breakdown (`tokens.cache_read` against
+`tokens.cache_creation`), `stop_reason` / `terminal_reason`, `permission_denials`, and the
+`session_id`. Gitignored; it is diagnostics, not the audit trail.
+
+```powershell
+python runner\stats.py                 # last 20 launches: table, aggregates, warnings
+python runner\stats.py --offer apator  # one run in full: every tool call, every error
+python runner\stats.py --json          # the joined rows, for anything else
+```
+
+`stats.py` joins that log to two things it already holds the keys for: `applications_log.jsonl`
+by url (so cost groups by ATS vendor and apply_type) and, by `session_id`, the transcript the CLI
+wrote to `~\.claude\projects\<cwd-slug>\<session_id>.jsonl`. The transcript is where the cost
+spread actually comes from — tool-call histogram, screenshot count, tool errors, which files were
+read, peak context. None of it costs a token or asks the applier for anything; it is all already
+on disk.
+
+Two numbers carry most of the weight. `duration_api_ms` against the runner's wall clock separates
+a slow model from a slow browser. Screenshots per offer is the real cost driver — an offer with
+nine of them costs about three times one with two, and `total_cost_usd` alone never says so.
+
+The same numbers reach the cockpit's history page: opening a row there calls
+`GET /api/run?url=&at=`, which is `stats.run_for` -- one launch, matched to that attempt by
+nearest timestamp. It is fetched on the click, not with the list, because a transcript runs to
+megabytes and most of the audit trail predates `run_log.jsonl` and has no run to show.
+
+The warnings block is the point of the tool. It flags: both quirks files read on one offer (they
+are split so each offer opens exactly one), a tool the playbook reached for that `--tools`
+withheld, tool errors, peak context past 60% of the window, and an offer logged as applied where
+`attach_file` was never called.
 
 ## Why the queue and the log live in `runner\data\`
 

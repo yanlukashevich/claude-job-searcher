@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -44,6 +45,11 @@ SCHEMA = RUNNER / "log_line.schema.json"
 RUN_LOG = DATA / "run_log.jsonl"
 AUTOCLICK = RUNNER / "permission_autoclick.py"
 AUTOCLICK_LOG = DATA / "autoclick.log"
+
+# The CLI writes each run's trace here and deletes it 30 days later (`cleanupPeriodDays`);
+# every number stats.py reports that the result envelope does not carry lives in that file.
+PROJECTS = Path.home() / ".claude" / "projects"
+TRANSCRIPTS = DATA / "transcripts"
 
 START_CHROME = ROOT / "tools" / "mcp_webfile" / "start_chrome.ps1"
 CDP_URL = "http://127.0.0.1:9222/json/version"
@@ -191,6 +197,48 @@ def kill_tree(pid: int) -> None:
                    capture_output=True, text=True)
 
 
+def envelope_meta(payload: dict) -> dict:
+    """The parts of the CLI's result envelope worth keeping, per launch.
+
+    Raw numbers only - `stats.py` does every division. Three of these answer questions
+    `total_cost_usd` cannot: `duration_api_ms` against the runner's wall clock says whether a
+    slow offer was the model or the browser; the cache token counts say why an offer was
+    expensive, since a cache read costs a tenth of a fresh input token; and `permission_denials`
+    is the only place a tool the playbook wants but `--tools` withholds ever shows up.
+    """
+    meta = {}
+    for k in ("session_id", "total_cost_usd", "num_turns", "is_error", "subtype",
+              "duration_ms", "duration_api_ms", "ttft_ms", "time_to_request_ms",
+              "stop_reason", "terminal_reason", "api_error_status", "queued_turn_count"):
+        if payload.get(k) is not None:
+            meta[k] = payload[k]
+
+    usage = payload.get("usage") or {}
+    if usage:
+        meta["tokens"] = {
+            "input": usage.get("input_tokens"),
+            "output": usage.get("output_tokens"),
+            "thinking": (usage.get("output_tokens_details") or {}).get("thinking_tokens"),
+            "cache_read": usage.get("cache_read_input_tokens"),
+            "cache_creation": usage.get("cache_creation_input_tokens"),
+        }
+
+    # One model per run today, but --model makes that a per-launch fact, so record which one
+    # actually served the offer rather than which one was asked for.
+    models = payload.get("modelUsage") or {}
+    if models:
+        meta["models"] = {
+            (u.get("canonicalModel") or name): round(u.get("costUSD", 0.0), 6)
+            for name, u in models.items()
+        }
+
+    denials = payload.get("permission_denials") or []
+    if denials:
+        meta["permission_denials"] = [d.get("tool_name", str(d)) if isinstance(d, dict) else str(d)
+                                      for d in denials]
+    return meta
+
+
 def run_offer(offer: dict, mode: str, cmd: list, timeout: int):
     """Launch one applier. Returns (structured result or None, run-log metadata)."""
     prompt = PROMPT.format(
@@ -234,9 +282,7 @@ def run_offer(offer: dict, mode: str, cmd: list, timeout: int):
         meta["stderr_tail"] = (err or "")[-1500:]
         return None, meta
 
-    for k in ("session_id", "total_cost_usd", "num_turns", "is_error", "subtype"):
-        if k in payload:
-            meta[k] = payload[k]
+    meta.update(envelope_meta(payload))
 
     result = extract_structured(payload)
     if result is None:
@@ -302,6 +348,31 @@ def append_todo(line: dict) -> None:
         line.get("blocked_reason"), note)
     with TODO.open("a", encoding="utf-8", newline="\n") as f:
         f.write(entry)
+
+
+def archive_transcript(session_id):
+    """Copy one run's trace out of the CLI's folder, which is swept 30 days after last
+    activity. The run log says an offer cost $1.33 and survives forever; the trace saying
+    why - every tool call, every tool error, the gaps between steps - does not. Copied raw:
+    the screenshots are most of the bytes and no metric reads them today, but they are the
+    only record of what the applier actually saw. Returns the copy, or None."""
+    if not session_id:
+        return None
+    src = PROJECTS / re.sub(r"[^A-Za-z0-9]", "-", str(SRC)) / (session_id + ".jsonl")
+    if not src.exists():
+        # A run launched from another cwd still counts.
+        src = next(PROJECTS.glob("*/" + session_id + ".jsonl"), None)
+        if src is None:
+            return None
+    try:
+        TRANSCRIPTS.mkdir(parents=True, exist_ok=True)
+        dest = TRANSCRIPTS / src.name
+        shutil.copy2(src, dest)
+    except OSError:
+        # An unreadable trace is a lost diagnostic, never a lost application: the log line
+        # is already on disk by now, and the batch has more offers to get through.
+        return None
+    return dest
 
 
 def append_run_log(meta: dict) -> None:
@@ -386,7 +457,7 @@ def main() -> int:
                     "  powershell -File tools\\mcp_webfile\\start_chrome.ps1")
 
     autoclick = None if args.no_autoclick else start_autoclick()
-    rows = []
+    rows, metas = [], []
     try:
         for i, offer in enumerate(offers, 1):
             print("\n[{}/{}] {} - {}".format(i, len(offers),
@@ -399,7 +470,10 @@ def main() -> int:
             meta["outcome"] = line["outcome"]
             meta["blocked_reason"] = line["blocked_reason"]
             append_run_log(meta)
+            if not archive_transcript(meta.get("session_id")):
+                print("      ! no transcript archived - stats.py loses this run in 30 days")
             rows.append(line)
+            metas.append(meta)
             flag = "" if result else "   <- applier failure, logged as blocked"
             print("      {}  ({}s){}".format(line["outcome"], meta["duration_s"], flag))
     finally:
@@ -408,11 +482,11 @@ def main() -> int:
         if autoclick:
             kill_tree(autoclick.pid)
 
-    summary(rows, args.mode)
+    summary(rows, metas, args.mode)
     return 0
 
 
-def summary(rows: list, mode: str) -> None:
+def summary(rows: list, metas: list, mode: str) -> None:
     print("\n" + "=" * 78)
     width = max([len(r.get("company") or "") for r in rows] or [7])
     for r in rows:
@@ -425,6 +499,12 @@ def summary(rows: list, mode: str) -> None:
     for r in rows:
         counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
     print("\n  " + "  ".join("{}: {}".format(k, v) for k, v in sorted(counts.items())))
+
+    cost = sum(m.get("total_cost_usd") or 0.0 for m in metas)
+    wall = sum(m.get("duration_s") or 0.0 for m in metas)
+    api = sum(m.get("duration_api_ms") or 0 for m in metas) / 1000.0
+    print("  ${:.2f} total, ${:.2f}/offer   {:.0f}s wall, {:.0f}s of it the model"
+          .format(cost, cost / max(len(metas), 1), wall, api))
 
     blocked = [r for r in rows if r["outcome"] == "blocked"]
     if blocked:

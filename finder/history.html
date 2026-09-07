@@ -12,7 +12,7 @@
   .filter{display:flex;gap:6px;align-items:center}
   input[type=search],select{background:var(--card);color:var(--fg);border:1px solid var(--line);
     border-radius:6px;padding:7px 10px;font-size:13px}
-  .wrap{padding:14px 18px;max-width:960px}
+  .wrap{padding:14px 18px}
   ul.list{list-style:none;margin:0;padding:0}
   li.item{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:8px 0;overflow:hidden}
   .row{display:flex;gap:12px;align-items:baseline;padding:11px 14px;cursor:pointer}
@@ -72,6 +72,38 @@
   .tip .tr .lft{display:flex;align-items:center;gap:6px}
   .tip .tr b{font-variant-numeric:tabular-nums}
   .tip .tt{border-top:1px solid var(--line);margin-top:5px;padding-top:5px;color:var(--dim)}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;
+    align-items:start}
+  .col{min-width:0}
+  .run{min-width:0;margin-top:10px;border-left:1px solid var(--line);padding-left:16px}
+  /* Below ~760px the two columns would each be too narrow to read; stack them instead. */
+  @media (max-width:760px){
+    .cols{grid-template-columns:minmax(0,1fr)}
+    .run{border-left:0;border-top:1px solid var(--line);padding:11px 0 0}
+  }
+  .run .rhd{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;
+    margin-bottom:8px}
+  .run .rhd.mt{margin-top:15px}
+  .run .rhd span{text-transform:none;letter-spacing:0}
+  .metrics{display:flex;flex-wrap:wrap;gap:7px}
+  .m{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 11px;
+    min-width:72px}
+  .m b{display:block;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
+    line-height:1.25}
+  .m i{display:block;font-style:normal;font-size:10px;color:var(--dim);margin-top:2px}
+  .m.bad b{color:var(--bad)}
+  /* The tool tally. Its own class, not .kv - that one is the two-column grid of the detail
+     body on the left, and reusing the name laid these rows out in two columns. */
+  .tk>div{display:flex;gap:10px;padding:1px 0}
+  .tk .k{color:var(--dim);min-width:168px}
+  .tk .k.sub{padding-left:13px}
+  .tk .v{font-weight:600;font-variant-numeric:tabular-nums}
+  .tk .v.x{color:var(--dim);font-weight:400}
+  .errline{font-size:12px;color:var(--dim);margin-top:6px;padding-left:8px;
+    border-left:2px solid var(--bad);overflow-wrap:anywhere}
+  .errline b{color:var(--fg);font-weight:600}
+  .foot{font-size:11px;color:var(--dim);margin-top:10px;overflow-wrap:anywhere}
+  .foot+.foot{margin-top:2px}
   .notes{white-space:pre-wrap;color:var(--fg)}
   .muted{color:var(--dim)}
 </style></head><body>
@@ -79,7 +111,9 @@
   <h1>Application history</h1><a class="back" href="/">← back to cockpit</a>
   <div class="sub">Every offer applied to — the bot's full trail (one entry per attempt, retries
     included) plus everything you marked by hand. Click a row to see the details: CV used, the
-    free-text the bot composed, blockers and notes. The chart stacks each day's outcomes; the
+    free-text the bot composed, blockers and notes, and — where the runner still holds the
+    launch — what the run cost: money, wall clock, tool calls, screenshots, errors.
+    The chart stacks each day's outcomes; the
     number above a bar counts only the ones that went out (review-mode fills included). It
     follows the filters below.</div>
   <div class="bar">
@@ -238,14 +272,82 @@ function detailHtml(e){
       <div class="val notes">${esc(e.notes)}</div></div>`;
   if(e.diagnostics) h+=`<div class="kv"><div class="k">diagnostics</div>
       <div class="val notes muted">${esc(typeof e.diagnostics==='string'?e.diagnostics:JSON.stringify(e.diagnostics,null,2))}</div></div>`;
+  // A hand-applied mark never had a run, so it keeps the full width; a bot entry splits:
+  // what the applier reported on the left, what its launch cost on the right (loadRun fills
+  // the panel when the row opens).
+  if(e.source!=='bot') return h;
+  return `<div class="cols"><div class="col">${h}</div><div class="run"></div></div>`;
+}
+
+// One fetch per opened row, cached by url+timestamp. Not fetched with the list: a transcript
+// runs to megabytes, and most of the log predates run_log.jsonl and has nothing to show.
+const RUNS={};
+const SHORTTOOL=s=>s.replace('mcp__chrome__','chrome:').replace('mcp__webfile__','webfile:');
+
+function runHtml(r){
+  const hd=(t,mt)=>`<div class="rhd${mt?' mt':''}">${t}</div>`;
+  if(!r) return hd('run diagnostics <span class="muted">'
+                  +'— not recorded; this attempt predates the run log</span>');
+  const m=[], met=(v,k,cls)=>m.push(`<span class="m ${cls||''}"><b>${v}</b><i>${k}</i></span>`);
+  if(r.total_cost_usd!=null) met('$'+r.total_cost_usd.toFixed(2),'cost');
+  if(r.peak_context) met(Math.round(r.peak_context/1000)+'k','peak context',
+                         r.peak_context>120000?'bad':'');
+  // The model/Chrome split only exists on launches recorded after run_batch started
+  // keeping duration_api_ms; older lines just say how long the whole thing took.
+  if(r.duration_s) met(Math.round(r.duration_s)+'s',
+    r.api_share!=null?Math.round(r.api_share*100)+'% the model':'wall clock');
+  if(r.cache_hit!=null) met(Math.round(r.cache_hit*100)+'%','cache hit');
+  if(r.longest_gap_s) met(r.longest_gap_s+'s','longest pause');
+  let h=hd('run diagnostics')+`<div class="metrics">${m.join('')}</div>`;
+
+  const foot=[r.model,r.effort&&('effort '+r.effort),r.cli_version&&('cli '+r.cli_version),
+    r.mode&&(r.mode+' mode'),r.session_id&&('session '+r.session_id.slice(0,8))].filter(Boolean);
+  if(foot.length) h+=`<div class="foot">${esc(foot.join(' · '))}</div>`;
+  if(r.reads&&r.reads.length) h+=`<div class="foot">read: ${esc(r.reads.join(', '))}</div>`;
+
+  const tools=Object.entries(r.tools||{}), acts=Object.entries(r.computer_actions||{});
+  if(tools.length){
+    const t=[];
+    tools.forEach(([k,v])=>{
+      t.push(`<div><span class="k">${esc(SHORTTOOL(k))}</span><span class="v">${v}</span></div>`);
+      // One tool name covers every computer action, and screenshots are the cost driver worth
+      // staring at - so break it open under itself rather than counting it twice up top.
+      if(k.endsWith('__computer')) acts.forEach(([a,n])=>t.push(
+        `<div><span class="k sub">${esc(a)}</span><span class="v x">${n}</span></div>`));
+    });
+    h+=hd(`tool calls <span>· ${r.tool_calls}</span>`,1)+`<div class="tk">${t.join('')}</div>`;
+  }
+  if(r.errors&&r.errors.length){
+    h+=hd(`errors <span>· ${r.tool_errors}</span>`,1);
+    r.errors.forEach(e=>{
+      h+=`<div class="errline"><b>${esc(SHORTTOOL(e.tool||'?'))}</b> ${esc(e.message)}</div>`;});
+  }
   return h;
 }
+
+async function loadRun(li){
+  const e=SHOWN[+li.dataset.i], box=li.querySelector('.run');
+  if(!e||!box||box.dataset.filled) return;
+  box.dataset.filled='1';
+  const key=e.url+'@'+(e.at||'');
+  if(!(key in RUNS)){
+    box.innerHTML='<div class="rhd">run diagnostics <span class="muted">— loading…</span></div>';
+    try{
+      const r=await fetch('/api/run?url='+encodeURIComponent(e.url)
+                          +'&at='+encodeURIComponent(e.at||''));
+      RUNS[key]=(await r.json()).run;
+    }catch(err){ RUNS[key]=null; }
+  }
+  box.innerHTML=runHtml(RUNS[key]);
+}
+
+let SHOWN=[];
 
 function render(){
   const q=document.getElementById('q').value.trim().toLowerCase();
   const fsrc=document.getElementById('src').value;
   const fout=document.getElementById('out').value;
-  const ev=EVENTS.filter(e=>{
+  const ev=SHOWN=EVENTS.filter(e=>{
     if(fsrc&&e.source!==fsrc) return false;
     // "sent" is a group of outcomes (clean/composed/by hand), the rest are literal.
     if(fout==='sent'){ if(SEGOF[e.outcome]!=='sent') return false; }
@@ -289,6 +391,7 @@ document.getElementById('list').addEventListener('click',ev=>{
   if(ev.target.closest('.detail')) return;   // the body is for reading/copying, not toggling
   if(selectingText(li)) return;
   li.classList.toggle('open');
+  if(li.classList.contains('open')) loadRun(li);
 });
 ['q','src','out'].forEach(id=>document.getElementById(id).addEventListener('input',render));
 
