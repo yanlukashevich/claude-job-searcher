@@ -36,7 +36,7 @@
     white-space:nowrap}
   .card .fl{font-size:11px;margin-top:2px}
   .fl .h{color:var(--warn)} .fl .p{color:var(--bad)}
-  #ed{min-width:0;position:sticky;top:14px}
+  #ed{min-width:0;position:sticky;top:calc(var(--nav-h) + 14px)}
   @media (max-width:900px){ #ed{position:static} }
   .edhead h2{font-size:17px;margin:0} .edhead .co{color:var(--dim);margin-top:2px}
   .edhead a{color:var(--accent);text-decoration:none} .edhead a:hover{text-decoration:underline}
@@ -81,8 +81,7 @@
 </style>
 <script src="/static/offer.js"></script></head><body>
 <header>
-  <h1>Outreach</h1><a class="back" href="/">← back to cockpit</a>
-  <a class="back" href="/history">📋 history</a>
+  <h1>Outreach</h1>
   <div class="sub">One card per dig-deeper offer, furthest along first: approved, then complete
     drafts, then drafts still missing something, contacts only, nothing yet (queue order within
     each). A card fills up in stages —

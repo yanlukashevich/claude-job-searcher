@@ -785,37 +785,56 @@ def api_send(body: SendBody):
     return _send_state()
 
 
+# The bar across the top of every page, in this order. Injected by _page() rather than written
+# into each HTML file, so adding a page is one line here instead of an edit to all of them.
+NAV = [
+    ("/", "⌂ Cockpit", "Offers by company, and the apply queue."),
+    ("/harvest", "↻ Harvest", "Re-collect the live feed and mark vanished offers expired."),
+    ("/outreach", "✉ Outreach", "The dig-deeper cards: contacts, email drafts, approval to send."),
+    ("/history", "📋 History", "Every offer applied to and the details of each application."),
+]
+
+
+def _nav(current: str) -> str:
+    links = []
+    for href, label, title in NAV:
+        on = ' class="on" aria-current="page"' if href == current else ""
+        links.append(f'<a href="{href}" title="{title}"{on}>{label}</a>')
+    return '<nav class="topnav">' + "".join(links) + "</nav>"
+
+
 # The pages share static/offer.js + offer.css, and StaticFiles sends no Cache-Control, so a
 # browser is free to keep an old copy of a file the page it just loaded depends on. New HTML
 # calling into old JS fails silently -- a row simply loses its pick button. Stamp every /static
 # link with the file's mtime, so editing one is the same as pointing the page at a new URL.
-def _page(path: Path) -> HTMLResponse:
+def _page(path: Path, current: str) -> HTMLResponse:
     def stamp(m: "re.Match[str]") -> str:
         f = HERE / "static" / m.group(1)
         v = int(f.stat().st_mtime) if f.exists() else 0
         return f"/static/{m.group(1)}?v={v}"
     html = re.sub(r"/static/([A-Za-z0-9_.-]+)", stamp, path.read_text(encoding="utf-8"))
+    html = html.replace("<body>", "<body>\n" + _nav(current), 1)
     return HTMLResponse(html)
 
 
 @app.get("/")
 def index():
-    return _page(PAGE)
+    return _page(PAGE, "/")
 
 
 @app.get("/harvest")
 def harvest_page():
-    return _page(HARVEST_PAGE)
+    return _page(HARVEST_PAGE, "/harvest")
 
 
 @app.get("/history")
 def history_page():
-    return _page(HISTORY_PAGE)
+    return _page(HISTORY_PAGE, "/history")
 
 
 @app.get("/outreach")
 def outreach_page():
-    return _page(OUTREACH_PAGE)
+    return _page(OUTREACH_PAGE, "/outreach")
 
 
 if __name__ == "__main__":
