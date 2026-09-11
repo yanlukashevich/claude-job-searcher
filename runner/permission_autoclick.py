@@ -43,6 +43,7 @@ import urllib.error
 import urllib.request
 
 import websockets
+from websockets.exceptions import ConnectionClosed, WebSocketException
 
 CDP_URL = "http://127.0.0.1:9222"
 CMD_TIMEOUT = 10  # seconds; the dialog's renderer answers in milliseconds
@@ -176,12 +177,18 @@ async def handle(target: dict, discover: bool) -> str | None:
             # A match outside the permission card: settings, history. Leave it alone.
             return None
 
-        await click_at(s, found["x"], found["y"])
-        await asyncio.sleep(0.3)
-        # Gone means it took. Still there means the click missed the handler.
-        again = await s.evaluate(find_js())
-        if isinstance(again, dict) and again.get("x") is not None:
-            await press_ctrl_enter(s)
+        try:
+            await click_at(s, found["x"], found["y"])
+            await asyncio.sleep(0.3)
+            # Gone means it took. Still there means the click missed the handler.
+            again = await s.evaluate(find_js())
+            if isinstance(again, dict) and again.get("x") is not None:
+                await press_ctrl_enter(s)
+        except ConnectionClosed:
+            # The card tears its own page down the moment the button takes, so this socket
+            # dies mid-command. That is what success looks like from here -- and letting it
+            # escape is what killed the watcher on its first approval of every batch.
+            pass
         return body[:160].replace("\n", " ")
 
 
@@ -190,7 +197,8 @@ async def sweep(discover: bool = False) -> int:
     for t in targets():
         try:
             what = await handle(t, discover)
-        except (asyncio.TimeoutError, OSError, RuntimeError) as e:
+        except (asyncio.TimeoutError, OSError, RuntimeError,
+                WebSocketException) as e:
             log("target {}: {}".format(t.get("id", "?")[:8], e))
             continue
         if what:
@@ -204,7 +212,12 @@ async def watch(poll: float, quiet_after: float) -> None:
         .format(EXT_ID[:8], poll))
     last_seen = time.time()
     while True:
-        if await sweep():
+        try:
+            hit = await sweep()
+        except Exception as e:              # the batch needs the loop, not a clean traceback
+            log("sweep failed, still watching: {!r}".format(e))
+            hit = 0
+        if hit:
             last_seen = time.time()
         elif quiet_after and time.time() - last_seen > quiet_after:
             log("nothing for {}s -- still watching".format(int(quiet_after)))
