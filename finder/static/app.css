@@ -47,3 +47,11 @@ button.primary:disabled{background:var(--card);border-color:var(--line);color:va
 .back{color:var(--accent);text-decoration:none;font-size:12px;margin-left:12px}
 .back:hover{text-decoration:underline}
 .status{color:var(--dim);font-size:13px} .status.ok{color:var(--good-2)} .status.err{color:var(--bad)}
+
+/* an outreach card's stage (finder/outreach.py): the cockpit's dig tab and /outreach */
+.stg{font-size:10.5px;font-weight:600;border:1px solid var(--line);color:var(--dim);
+  border-radius:9px;padding:0 7px;white-space:nowrap;line-height:1.6}
+.stg.s-contacts{border-color:var(--warn);color:var(--warn)}
+.stg.s-draft{border-color:var(--accent);color:var(--accent)}
+.stg.s-approved{background:var(--good);border-color:var(--good);color:#fff}
+.found{color:var(--good-2);font-weight:700}

@@ -74,9 +74,11 @@ The empty space right of the list is now a sticky two-tab panel:
   `runner/data/batch_log.jsonl` — which is how you tell in the morning whether last night ran.
   The two commands are one run spelled twice: `--mode auto` (what the nightly task does:
   fills and submits) and `--mode review` (fills everything, stops before the final Submit).
-- **Dig deeper (M)** — the same rows plus an editable `note` — your draft of the outreach
-  (the angle, who to reach, what to ask), saved on blur — and **Copy as markdown**, which
-  produces `- [ ] Company — Title — url — note` lines to paste anywhere.
+- **Dig deeper (M)** — the same rows, each with its outreach **stage** chip and a `✓` once
+  contacts are found; a row opens its card on `/outreach` (see [Outreach](#outreach) below).
+  **Copy as markdown** produces `- [ ] Company — Title — url — email — note` lines to paste
+  anywhere. Dropping a card that holds contacts or a draft — by `×` or by the pick cycle —
+  asks first.
 
 The **queue** is drag-sorted by the `⠿` grip on the left of a row (only the grip starts a drag;
 the rest of the row is a link). A drop POSTs the new order to `/api/queue/reorder`, which
@@ -135,7 +137,7 @@ expired` selector in the header switches them in; shown ones are dimmed, dashed 
 selector also drives the category counts (chips and dropdown), so the numbers always describe
 the offers you can actually see.
 
-Five files, joined by offer URL:
+Five files, joined by offer URL (plus `data/outreach_sent.jsonl`, append-only, for the `✉`):
 
 | file | who writes it | how |
 |---|---|---|
@@ -143,12 +145,13 @@ Five files, joined by offer URL:
 | `../runner/data/applications_log.jsonl` | `runner/run_batch.py` | append-only (crash-safe) |
 | `data/manual_applied.json` | you, via the cockpit | mutable dict, toggle on/off |
 | `../runner/data/worklist.json` | **both** the cockpit and the runner | read-modify-write, `.tmp` + `os.replace` on each side |
-| `data/dig_deeper.json` | you, via the cockpit | mutable dict, like `manual_applied.json` |
+| `data/dig_deeper.json` | the cockpit, `/outreach`, agents, `send_outreach.py` | read-modify-write, `.tmp` + `os.replace`; never written while it does not parse |
 
-The queue is the only file with two writers: you add to it while the runner deletes from it. So
-neither side ever writes a list it was holding — each re-reads, changes one entry and swaps the
-file in atomically. A whole-file overwrite from a stale copy would silently erase the other
-side's work.
+The queue and the dig cards are the files with several writers: you add to the queue while the
+runner deletes from it, and you edit cards while an agent fills them and the sender removes the
+ones it mailed. So no side ever writes a list it was holding — each re-reads, changes one entry
+and swaps the file in atomically. A whole-file overwrite from a stale copy would silently erase
+the other side's work.
 
 **Superseded:** `prototype/browse.py` (static triage page, applied-state in localStorage) and
 the whole `legacy/` PowerShell pipeline (`harvest_offers.ps1` + `build_worklist.ps1` +
@@ -156,6 +159,86 @@ the whole `legacy/` PowerShell pipeline (`harvest_offers.ps1` + `build_worklist.
 log instead of the browser. The legacy files are frozen for reference (`legacy/README.md`).
 
 Tuning loop for scoring: edit `prototype\keywords.py` → restart `app.py` → refresh the tab.
+
+## Outreach
+
+Each dig-deeper offer is a **card** in `data/dig_deeper.json`, and the card is the whole
+outreach: contacts, the email, your approval. It fills up in stages:
+
+```
+ no contact  ──►  contacts ✓  ──►  draft  ──►  approved  ──►  sent → leaves the list
+               (email / other)   (subject +   (you clicked     (logged with its text in
+                                  body)        OK to send)      outreach_sent.jsonl)
+```
+
+**`/outreach`** (the `✉ Outreach` link in the cockpit header) lists the cards furthest along
+first — approved (sendable before held), complete drafts, drafts still missing something,
+contacts only, nothing yet; queue order within each — with a stage filter, and edits one at a
+time: email, other contacts, subject, CV, body, notes. The cockpit's dig tab uses the same order.
+It shows whether the offer's application actually went out, and what would stop the email.
+It re-reads the file whenever you come back to the tab.
+
+**OK to send** stores a *stamp* on the card: a short hash of the email + subject + body + CV
+(after the fallback below). Change a single letter of those afterwards — on the page or in the
+file — and the stamp no longer matches: the card is back at `draft` ("approval stale") and will
+not be sent. Nothing watches for edits; the sender checks the stamp right before each send.
+
+The **CV** defaults to the one the bot attached to this offer's application (`cv_used` in the
+log), so the email and the application match. Pick another in the dropdown to override it.
+
+**Sending** is `send_outreach.py`. The **✉ Send approved** button on `/outreach` runs it with
+`--send` for the ready cards it lists in its confirm (at most 5, `--url` each, in page order),
+as a child of `app.py` — keep the server running until it finishes; its output shows under the
+button and stays in `data/outreach_send.log`. The same command by hand:
+
+```powershell
+python finder\send_outreach.py                        # dry run: READY, or why not, per card
+python finder\send_outreach.py --send                 # up to --max 5, --pause 120-300 s apart
+python finder\send_outreach.py --send --test-to you@gmail.com --max 1 --only soneta
+```
+
+It needs a Gmail App Password. Set it once as a user variable and both the button and the
+command find it, without restarting anything (the sender reads it from the registry):
+`[Environment]::SetEnvironmentVariable("GMAIL_APP_PASSWORD", "xxxx xxxx xxxx xxxx", "User")`.
+
+A card is **READY** when it has a valid email, subject, body and a CV on disk, its approval
+stamp matches, this (offer, address) pair is not in the sent log, and the offer's application
+went out — the bot logged a sent outcome through any of its links (`filled_review` counts), or
+you marked it applied by hand. A `blocked` application, or none at all, **holds** the email:
+the drafts say "I already applied", so submit it and tick "I applied by hand" first. The page
+says so only in the application line and a `held` flag in the list, not in a box. Each email logs in to SMTP anew (Gmail drops a connection idle for minutes), the first
+SMTP error stops the run, and a card edited during a pause is re-judged and skipped.
+
+For every email that leaves: the line goes into `outreach_sent.jsonl` first (with the body and
+a copy of the card), then the card is removed from `dig_deeper.json` — re-read, one key dropped,
+atomic replace, so a click or an agent's edit made during the pause survives. A run that dies in
+between finishes the removal next time. The cockpit keeps a `✉` on the offer's row, and so
+does `/history`: the email is not a row of its own there but part of the offer's application
+row, word for word when you open it.
+
+`--test-to` sends the real email to you, subject prefixed with the address it would have gone
+to. It skips the approval and application checks — nothing reaches the employer — and logs and
+removes nothing.
+
+### For agents
+
+You are filling outreach cards in `finder/data/dig_deeper.json`, an object of offer URL → card.
+Edit the file in place; the page and the sender pick your edits up on their own.
+
+- `email` — **one** address, the one the email goes to. Nothing else in this field.
+- `other` — free text for everything else: the person's name and role, a second address,
+  phone, LinkedIn, where you found it (`site` / `search`). Nothing parses it.
+- `subject` — one line.
+- `body` — sent **verbatim**, so it is the finished email: one line per paragraph (the
+  recipient's client wraps them), a blank line between paragraphs, the signature included.
+- `cv` — optional, `src/CV_PDF/<variant>/<file>.pdf`. Leave it empty to attach the CV the bot
+  used for this offer's application.
+- `note` — the owner's notes; add to it, don't replace it.
+- **Never write `approved`.** It is the owner's approval of the exact text, set only by the
+  page's OK-to-send button. Any edit you make to `email`, `subject`, `body` or `cv` voids an
+  existing one, which is intended: the owner reads the new version before it goes out.
+- Keep the file valid JSON. A broken file is refused by the page and the sender until fixed.
+- Facts about the owner come only from `src/profile.md`; never invent experience or claims.
 
 ## The files
 
@@ -169,9 +252,13 @@ Tuning loop for scoring: edit `prototype\keywords.py` → restart `app.py` → r
 | `data/offers_db.jsonl` | Every offer ever seen; one line per unique job. Rows are never deleted — gone-from-the-feed ones carry `archived_at`. |
 | `data/company_aliases.json` | Hand-written company spellings → the name to use. Merges *and* renames; see Identity & dedup. |
 | `prototype/` | **The scorer + review page.** `keywords.py` is the file you tune. |
-| `data/dig_deeper.json` | The outreach list: `{url: {company, title, score, added_at, note}}`. Not in `src/` — the applier must never pay tokens for it. |
-| `send_outreach.py` | Sends an `outreach_*.md` file's emails over Gmail SMTP with the CV attached from disk (the Gmail connector can't attach a real file). Dry run unless `--send`; needs `GMAIL_APP_PASSWORD`. An unchecked `- [ ]` naming a company holds that email back. |
-| `data/outreach_sent.jsonl` | One line per email `send_outreach.py` sent; a (file, recipient) pair in it is never sent twice. |
+| `data/dig_deeper.json` | The outreach cards: `{url: card}`, one per dig-deeper offer, with its contacts and email draft. Not in `src/` — the applier must never pay tokens for it. |
+| `outreach.py` | The card rules (stage, approval stamp, problems, held), shared by `app.py` and the sender. A library, no CLI. |
+| `outreach.html` | The `/outreach` page: the card list and its editor. |
+| `send_outreach.py` | Sends approved cards over Gmail SMTP with the CV attached from disk (the Gmail connector can't attach a real file). Dry run unless `--send`; needs `GMAIL_APP_PASSWORD`. |
+| `data/outreach_sent.jsonl` | One line per email that left, with its full text and a copy of the card; an (offer, address) pair in it is never sent twice. `/history` reads it. |
+| `data/outreach_send.log` | The last ✉ Send run's output, shown under the button on `/outreach`. Overwritten by the next run. |
+| `data/*_2026-09-10.md` | The first batch's contacts report and drafts, from before the cards existed. Kept as the record; nothing reads them. |
 
 ## Two portals, one database
 

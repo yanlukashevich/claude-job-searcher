@@ -80,11 +80,14 @@ function offerLi(o, pick){
   const site=o.sites?`<span class="site s-${o.sites}" title="${attr(siteTitle(o))}">${esc(o.sites)}</span>`:'';
   const expb=o.archived
     ?`<span class="expbadge" title="off the feed since ${attr((o.archived_at||'').slice(0,10))}">expired</span>`:'';
+  // From the sent log, so it outlives the dig card: a mailed card leaves the list, this stays.
+  const mailed=o.emailed_at
+    ?`<span class="mailed" title="you emailed them on ${attr(o.emailed_at.replace('T',' ').slice(0,16))}">✉</span>`:'';
   return `<li class="of lb${o.bucket}${applied?' applied':''}${o.archived?' expired':''}" data-u="${attr(o.url)}">
     <div class="row">
       ${picker}
       <span class="score">${o.score>0?'+':''}${o.score}</span>${o.score_override?'<span class="ovr" title="manual score">✎</span>':''}
-      ${title} ${site} ${newb} ${expb} ${meta} ${pill} ${mark}
+      ${title} ${site} ${newb} ${expb} ${meta} ${pill} ${mailed} ${mark}
       <span class="caret">▸</span>
     </div>
     <div class="detail">${detailHtml(o)}</div>
@@ -165,10 +168,31 @@ async function copyFlash(btn, text){
   }catch(err){ alert('Copy failed: '+err.message); }
 }
 
+// An outreach card's stage chip plus the ✓ that says its contacts are found. Shared by the
+// cockpit's dig tab and /outreach, so the two never label a card differently.
+const STAGECLS={'no contact':'none',contacts:'contacts',draft:'draft',approved:'approved'};
+function stageChip(d){
+  return `<span class="stg s-${STAGECLS[d.stage]||'none'}">${esc(d.stage||'?')}</span>`
+    +(d.has_contacts?`<span class="found" title="contacts found">✓</span>`:'');
+}
+
 // The dig-deeper list as a checklist you can paste anywhere — one line per company to chase.
 function digMarkdown(items){
   return items.map(d=>`- [ ] ${d.company} — ${d.title} — ${d.url}`
-    +(d.note?` — ${d.note}`:'')).join('\n');
+    +(d.email?` — ${d.email}`:'')+(d.note?` — ${d.note}`:'')).join('\n');
+}
+
+// Drop an offer's dig card. The server refuses a card that holds contacts or a draft unless
+// asked twice, so ten minutes of digging never vanish on a stray click; true if it is gone.
+async function dropDig(url, label){
+  const post=force=>fetch('/api/dig/remove',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({url,force})})
+    .then(r=>r.json());
+  const d=await post(false);
+  if(!d.needs_force) return !d.error;
+  if(!confirm(`${label||'This card'} has contacts or an email draft on it.\n\n`
+      +'Drop it from the dig-deeper list anyway? What was filled in is lost.')) return false;
+  return !(await post(true)).error;
 }
 
 // One click on the pick button = one server write. The next state is read off the CURRENT
@@ -177,7 +201,8 @@ function digMarkdown(items){
 async function cyclePick(o){
   const post=(p)=>fetch(p,{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({url:o.url})});
-  if(o.dig){        await Promise.all([post('/api/queue/remove'), post('/api/dig/remove')]);
+  if(o.dig){        if(!await dropDig(o.url, o.company)) return;   // kept: both lists stay
+                    await post('/api/queue/remove');
                     o.queued=false; o.dig=false; }
   else if(o.queued){ await post('/api/dig/add');   o.dig=true; }
   else{              await post('/api/queue/add'); o.queued=true; }

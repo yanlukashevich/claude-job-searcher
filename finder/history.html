@@ -28,6 +28,12 @@
     color:var(--good-2);border:1px solid var(--good-2)}
   .out-filled_review{color:var(--accent);border:1px solid var(--accent)}
   .out-blocked{color:var(--bad);border:1px solid var(--bad)}
+  .out-emailed{color:var(--warn);border:1px solid var(--warn)}
+  .mailed{color:var(--warn);font-size:13px;flex:none;cursor:help}
+  .mail{margin-top:16px;border-top:1px dashed var(--line);padding-top:10px}
+  .mail .mhd{color:var(--warn);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+    font-weight:600}
+  .mail .kv{margin-top:6px}
   .src{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:1px 8px;flex:none}
   .caret{color:var(--dim);flex:none;transition:transform .12s;font-size:11px}
   li.open .caret{transform:rotate(90deg)}
@@ -115,7 +121,8 @@
     launch — what the run cost: money, wall clock, tool calls, screenshots, errors.
     The chart stacks each day's outcomes; the
     number above a bar counts only the ones that went out (review-mode fills included). It
-    follows the filters below.</div>
+    follows the filters below. A <span class="mailed">✉</span> means you also emailed them about
+    the offer: open the row to read the email word for word.</div>
   <div class="bar">
     <input type="search" id="q" placeholder="filter title / company…">
     <div class="filter">
@@ -123,6 +130,7 @@
         <option value="">all sources</option>
         <option value="bot">bot only</option>
         <option value="manual">manual only</option>
+        <option value="emailed">✉ emailed them</option>
       </select>
       <select id="out">
         <option value="">all outcomes</option>
@@ -151,7 +159,7 @@ const when=s=>(s||'').replace('T',' ').slice(0,16);
 // `submitted` is a legacy name kept only so old log lines still render.
 const OUTLABEL={applied_clean:'sent (clean)',applied_composed:'sent (composed)',
   filled_review:'filled (review)',applied_manual:'applied by hand',blocked:'blocked',
-  submitted:'sent'};
+  submitted:'sent',emailed:'emailed'};
 
 function renderStats(ev){
   const n=ev.length;
@@ -254,7 +262,36 @@ document.getElementById('chart').addEventListener('mouseleave',()=>{
   const tip=document.getElementById('tip'); if(tip) tip.classList.remove('on');
 });
 
+// An outreach email you sent about this offer: who, what, and the text exactly as it left
+// (outreach_sent.jsonl). It lives inside the offer's row, under what the application did.
+function emailHtml(m){
+  const rows=[];
+  const kv=(k,v)=>rows.push(`<div class="k">${k}</div><div class="val">${v}</div>`);
+  kv('to',esc(m.to||'?'));
+  kv('subject',esc(m.subject||''));
+  if(m.attachment) kv('CV',esc(m.attachment));
+  let h=`<div class="mail"><div class="mhd">✉ email to them · ${esc(when(m.ts))}</div>`
+    +`<div class="kv">${rows.join('')}</div>`;
+  if(m.body) h+=`<div class="ans"><div class="q">the email</div><div class="a">${esc(m.body)}</div></div>`;
+  else h+=`<div class="kv"><div class="k">the email</div><div class="val muted">not recorded`
+    +` — sent before the log kept the text</div></div>`;
+  if(m.other) h+=`<div class="kv"><div class="k">other contacts</div>
+      <div class="val notes">${esc(m.other)}</div></div>`;
+  if(m.note) h+=`<div class="kv"><div class="k">note</div>
+      <div class="val notes">${esc(m.note)}</div></div>`;
+  return h+'</div>';
+}
+
 function detailHtml(e){
+  const mails=(e.emails||[]).map(emailHtml).join('');
+  // An email whose application row is gone (the hand-applied mark was un-ticked) keeps a row
+  // of its own, or it would vanish from here.
+  if(e.source==='email'){
+    const link=e.url?`<div class="kv"><div class="k">offer</div><div class="val">`
+      +`<a href="${attr(e.url)}" target="_blank">${esc(e.url)}</a></div></div>`:'';
+    return link+`<div class="muted" style="margin-top:8px">no application is logged for this `
+      +`offer any more</div>`+mails;
+  }
   const rows=[];
   const kv=(k,v)=>rows.push(`<div class="k">${k}</div><div class="val">${v}</div>`);
   if(e.url) kv('offer',`<a href="${attr(e.url)}" target="_blank">${esc(e.url)}</a>`);
@@ -275,8 +312,8 @@ function detailHtml(e){
   // A hand-applied mark never had a run, so it keeps the full width; a bot entry splits:
   // what the applier reported on the left, what its launch cost on the right (loadRun fills
   // the panel when the row opens).
-  if(e.source!=='bot') return h;
-  return `<div class="cols"><div class="col">${h}</div><div class="run"></div></div>`;
+  if(e.source!=='bot') return h+mails;
+  return `<div class="cols"><div class="col">${h}</div><div class="run"></div></div>`+mails;
 }
 
 // One fetch per opened row, cached by url+timestamp. Not fetched with the list: a transcript
@@ -348,15 +385,18 @@ function render(){
   const fsrc=document.getElementById('src').value;
   const fout=document.getElementById('out').value;
   const ev=SHOWN=EVENTS.filter(e=>{
-    if(fsrc&&e.source!==fsrc) return false;
+    if(fsrc==='emailed'){ if(!(e.emails||[]).length) return false; }
+    else if(fsrc&&e.source!==fsrc) return false;
     // "sent" is a group of outcomes (clean/composed/by hand), the rest are literal.
     if(fout==='sent'){ if(SEGOF[e.outcome]!=='sent') return false; }
     else if(fout&&e.outcome!==fout) return false;
     if(q){const hay=(e.title+' '+e.company).toLowerCase(); if(!hay.includes(q)) return false;}
     return true;
   });
-  renderStats(ev);
-  renderChart(ev);
+  // A stray email row is not an application: counting it would inflate "applications per day".
+  const apps=ev.filter(e=>e.source!=='email');
+  renderStats(apps);
+  renderChart(apps);
   document.getElementById('cnt').textContent=
     ev.length+' of '+EVENTS.length+' shown';
   const list=document.getElementById('list');
@@ -371,6 +411,8 @@ function render(){
         <span class="caret">▶</span>
         <span class="when">${esc(when(e.at))}</span>
         <span class="main">${title}<span class="co">${esc(e.company)}</span></span>
+        ${(e.emails||[]).length&&e.source!=='email'?`<span class="mailed" title="you also emailed them on ${
+          attr(e.emails.map(m=>when(m.ts)).join(', '))} — open the row to read it">✉</span>`:''}
         <span class="src">${esc(e.source)}</span>
         <span class="out out-${esc(oc)}">${esc(OUTLABEL[oc]||oc||'?')}</span>
       </div>

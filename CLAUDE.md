@@ -136,7 +136,8 @@ cockpit panel shows as "last batch".
 finder/harvest.py + harvest_pracuj.py  →  finder/data/offers_db.jsonl   (every offer ever seen)
    → finder cockpit (app.py)  CODE: score + join applied-status; you click
       → runner/data/worklist.json      the QUEUE — persistent, added to one click at a time
-      → finder/data/dig_deeper.json    the outreach list (second click; you work it by hand)
+      → finder/data/dig_deeper.json    the outreach cards (second click): contacts + email draft,
+                                       edited on /outreach; finder/send_outreach.py sends approved ones
          → runner/run_batch.py  (trusts the queue, never re-filters), 23:00 via runner/nightly.ps1
             → one fresh `claude -p` per offer  (applier_instructions.md + profile.md)
                → applies via Claude-in-Chrome, attaches the CV via mcp_webfile

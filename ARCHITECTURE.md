@@ -47,7 +47,8 @@ apply step can be run and reviewed separately.
 - **Output:** `runner/data/worklist.json` — a persistent **queue**, not a batch list. One click
   in the cockpit puts an offer in it server-side; it stays there across refreshes and days until
   the runner applies to it and removes it. A second click also files the offer in
-  `finder/data/dig_deeper.json`, the outreach list you work by hand.
+  `finder/data/dig_deeper.json`, the outreach list you work by hand: one card per offer that
+  carries its contacts and email draft, which `finder/send_outreach.py` sends once approved.
 
 ### 3.2 Applier
 - **Input:** one offer, handed to it in the task prompt by the runner, + `profile.md` +
@@ -72,7 +73,7 @@ apply step can be run and reviewed separately.
 | `finder/data/offers_db.jsonl` | Every offer ever harvested; the finder's source of truth. |
 | `runner/data/worklist.json` | The apply **queue**: cockpit writes, runner drains. An offer leaves it once it has a log line. |
 | `runner/data/batch_log.jsonl` | One line per batch — what a night attempted, applied, blocked, cost, and how it ended. |
-| `finder/data/dig_deeper.json` | The outreach list: offers to also chase by hand, with your note on what to write them. |
+| `finder/data/dig_deeper.json` | The outreach cards: offers to also chase by hand, each with its contacts and email draft; `send_outreach.py` sends the approved ones and logs them to `outreach_sent.jsonl`. |
 | `runner/data/todo_manual.md` | Offers the tool could not finish, with URL + reason, for manual handling. |
 
 ### 4.1 `profile.md` (facts only)

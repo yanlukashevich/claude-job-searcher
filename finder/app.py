@@ -6,6 +6,7 @@ Serves offers.html and a tiny JSON API that JOINS four files by offer URL:
   - runner/data/applications_log.jsonl   what the BOT did (run_batch.py appends; append-only)
   - finder/data/manual_applied.json   what YOU did by hand (mutable, toggle-able)
   - runner/data/worklist.json     the apply QUEUE, which the nightly runner drains
+and serves the outreach cards (finder/data/dig_deeper.json, rules in outreach.py) to /outreach.
 
 The two write patterns are different on purpose. Automated runs append to the JSONL log
 (crash-safe, no read-modify-write). Your manual marks are one interactive click, so they live
@@ -21,6 +22,7 @@ Run:
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -37,18 +39,20 @@ sys.path.insert(0, str(HERE / "prototype"))      # scoring, keywords
 sys.path.insert(0, str(HERE.parent / "runner"))  # stats (run diagnostics)
 
 from common import (ROOT, HARVEST_LOG, LAST_HARVEST,   # noqa: E402
-                    canonical_names, log_run, merge, norm_company, write_jsonl)
+                    canonical_names, log_run, merge, norm_company, write_json, write_jsonl)
 from scoring import classify, BUCKETS            # noqa: E402
 import stats                                     # noqa: E402  runner/stats.py
 import harvest                                    # noqa: E402  justjoin
 import harvest_pracuj                             # noqa: E402  pracuj.pl
+# The outreach list, finder/data/dig_deeper.json: offers you also chase by hand, one card each
+# with its contacts and email draft. Deliberately in finder/data/, not src/ -- the applier must
+# never pay tokens for it. The card rules live in outreach.py, shared with send_outreach.py.
+import outreach                                   # noqa: E402
+import send_outreach                              # noqa: E402  the /outreach Send button
 
 OFFERS_DB = HERE / "data" / "offers_db.jsonl"
 MANUAL = HERE / "data" / "manual_applied.json"
 MANUAL_SCORES = HERE / "data" / "manual_scores.json"   # url -> {score, reason, at} (your overrides)
-# The outreach list: offers you also want to chase by hand (find the company's email, write to
-# a human). Deliberately in finder/data/, not src/ -- the applier must never pay tokens for it.
-DIG = HERE / "data" / "dig_deeper.json"
 LOG = ROOT / "runner" / "data" / "applications_log.jsonl"
 WORKLIST = ROOT / "runner" / "data" / "worklist.json"
 BATCH_LOG = ROOT / "runner" / "data" / "batch_log.jsonl"   # one line per nightly batch
@@ -59,6 +63,7 @@ NIGHTLY_COUNT = 10
 PAGE = HERE / "page.html"
 HARVEST_PAGE = HERE / "harvest.html"
 HISTORY_PAGE = HERE / "history.html"
+OUTREACH_PAGE = HERE / "outreach.html"
 
 # offer category (finder taxonomy) -> CV variant stack (profile.md CV-variants table).
 # Anything not listed falls through to "universal", which is also the applier's default.
@@ -222,17 +227,6 @@ def _save_manual_scores(d):
     MANUAL_SCORES.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _write_json(path, obj):
-    """Replace a JSON file in one step: write a sibling .tmp, then os.replace it over the
-    target. os.replace is atomic on Windows too, so a reader -- run_batch.py draining the
-    queue while you click -- never sees a half-written file, and a crash mid-write leaves the
-    old one intact. run_batch.py writes worklist.json the same way, for the same reason."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
-
-
 def _queue():
     """The apply queue as it is on disk RIGHT NOW. Always re-read: run_batch.py removes each
     offer the moment it has a log line, so an in-memory copy goes stale within a minute."""
@@ -243,7 +237,9 @@ def _queue():
 
 
 def _save_queue(items):
-    _write_json(WORKLIST, items)
+    # atomic (tmp + os.replace): run_batch.py writes worklist.json the same way, for the same
+    # reason -- neither side may ever see the other's half-written file.
+    write_json(WORKLIST, items)
 
 
 def _worklist_entry(offer):
@@ -261,19 +257,6 @@ def _worklist_entry(offer):
         "status": "pending",
         "added_at": datetime.now(timezone.utc).isoformat(),
     }
-
-
-def _dig():
-    """url -> {company, title, url, apply_url, cities, score, added_at, note}. The offers you
-    also want to chase by hand. Same mutable-dict pattern as manual_applied.json: you add and
-    remove these by clicking, so nothing here is append-only."""
-    if not DIG.exists():
-        return {}
-    return json.loads(DIG.read_text(encoding="utf-8"))
-
-
-def _save_dig(d):
-    _write_json(DIG, d)
 
 
 def _last_batch():
@@ -298,7 +281,14 @@ def _enriched_offers():
     manual = _manual()
     scores = _manual_scores()
     queued = {e.get("url") for e in _queue()}
-    dig = _dig()
+    try:
+        dig = outreach.load()
+    except outreach.CardsError:
+        dig = {}             # the dig panel shows the error; the offer list still has to load
+    emailed = {}             # url -> newest time you emailed about it (outreach_sent.jsonl)
+    for r in outreach.sent_log():
+        if r.get("url") and (r.get("ts") or "") > emailed.get(r["url"], ""):
+            emailed[r["url"]] = r.get("ts") or ""
     out = []
     for o in _scored_offers():
         row = dict(o)
@@ -327,6 +317,8 @@ def _enriched_offers():
         # unqueued when the row happens to show the other portal's link. See _urls_of.
         row["queued"] = any(u in queued for u in o["urls"])
         row["dig"] = any(u in dig for u in o["urls"])
+        # Outlives the card: a sent card leaves dig_deeper.json, the ✉ on the row stays.
+        row["emailed_at"] = max((emailed[u] for u in o["urls"] if u in emailed), default=None)
         out.append(row)
     lh = _last_harvest()
     new_at = lh["at"] if lh else None
@@ -378,9 +370,27 @@ def api_harvest_status():
 def api_history():
     """The application history: every attempt the bot logged (each log line is one event, so a
     retried URL shows every attempt), plus every offer you marked applied by hand. Joined back
-    onto the offer db for title/company where the log line lacks them. Newest first."""
+    onto the offer db for title/company where the log line lacks them. Newest first.
+
+    An outreach email is not an event of its own: it rides on its offer's application rows as
+    `emails`, shown when the row is opened. Only an email whose offer has no application row
+    left (you un-ticked "applied by hand" after sending) gets a row, or it would vanish."""
     offers_by_url = _by_any_url()
     events = []
+    sent = outreach.sent_log()
+    # Spread over each offer's sibling links -- the email may be filed under the pracuj link
+    # while the bot applied through the justjoin one.
+    emails_of = {}
+    for r in sent:
+        if r.get("url"):
+            for u in _offer_urls(r["url"]):
+                emails_of.setdefault(u, []).append(r)
+    attached = set()
+
+    def mails(url):
+        found = emails_of.get(url, [])
+        attached.update(id(r) for r in found)
+        return [_email_view(r) for r in found]
 
     # Bot log — the full trail, one entry per line (not deduped; retries are real history).
     for row in _read_jsonl(LOG):
@@ -399,6 +409,7 @@ def api_history():
             "composed_answers": row.get("composed_answers") or [],
             "notes": row.get("notes"),
             "diagnostics": row.get("diagnostics"),
+            "emails": mails(row.get("url")),
         })
 
     # Manual marks — just a url + timestamp; join for the human-readable fields.
@@ -418,11 +429,32 @@ def api_history():
             "composed_answers": [],
             "notes": None,
             "diagnostics": None,
+            "emails": mails(url),
+        })
+
+    for r in sent:
+        if id(r) in attached:
+            continue
+        o = offers_by_url.get(r.get("url"), {})
+        events.append({
+            "source": "email",
+            "at": r.get("ts"),
+            "url": r.get("url"),
+            "title": r.get("title") or o.get("title", ""),
+            "company": r.get("company") or o.get("company", ""),
+            "category": o.get("category", ""),
+            "outcome": "emailed",
+            "emails": [_email_view(r)],
         })
 
     events.sort(key=lambda e: e.get("at") or "", reverse=True)
     return {"events": events, "count": len(events),
             "generated": datetime.now(timezone.utc).isoformat()}
+
+
+def _email_view(r):
+    """One outreach_sent.jsonl line, as a history row shows it when opened."""
+    return {k: r.get(k) for k in ("ts", "to", "subject", "body", "attachment", "other", "note")}
 
 
 @app.get("/api/run")
@@ -552,14 +584,39 @@ def api_queue_remove(body: UrlBody):
 
 # ---- the dig-deeper list -------------------------------------------------------------------
 
+#
+# dig_deeper.json has more writers than the queue: this server, the outreach sender removing
+# what it mailed, and any agent you point at the file to fill in contacts or a draft. So every
+# write below re-reads the file, changes one card and swaps it in -- and if the file does not
+# parse, nothing is written at all: saving over it would throw away the agent's work.
+
+def _broken(e):
+    return JSONResponse({"error": str(e)}, status_code=409)
+
+
+def _dig_key(cards, url):
+    """The key a card is filed under -- any of the offer's links, not necessarily this one."""
+    return next((u for u in _offer_urls(url) if u in cards), None)
+
+
+def _card_view(card, ctx):
+    return dict(card, **outreach.status(card, ctx))
+
+
 @app.get("/api/dig")
 def api_dig():
-    """The outreach list in QUEUE order. It is the same offers, so one order serves both: you
-    work the list by hand in the order the bot applies to it, and the queue's drag is the only
-    place that order is decided. Entries the runner has already drained off the queue keep
-    their file order, behind the queued ones."""
+    """The outreach cards, each with its stage and send-readiness joined on, furthest along
+    first (outreach.order): approved, complete draft, draft missing something, contacts,
+    nothing. Within a step, QUEUE order -- the same offers, so you work them in the order the
+    bot applies to them -- and cards already drained off the queue keep their file order."""
+    try:
+        cards = outreach.load()
+    except outreach.CardsError as e:
+        return {"items": [], "count": 0, "error": str(e)}
+    ctx = outreach.Context(siblings=_offer_urls)
     rank = {e.get("url"): i for i, e in enumerate(_queue())}
-    items = sorted(_dig().values(), key=lambda d: rank.get(d.get("url"), len(rank)))
+    items = [_card_view(c, ctx) for c in cards.values()]
+    items.sort(key=lambda v: (outreach.order(v), rank.get(v.get("url"), len(rank))))
     return {"items": items, "count": len(items)}
 
 
@@ -570,50 +627,162 @@ def api_dig_add(body: UrlBody):
     o = _by_any_url().get(body.url)
     if not o:
         return {"url": body.url, "dig": False, "reason": "unknown offer"}
-    dig = _dig()
-    if not any(u in dig for u in o["urls"]):
+    try:
+        cards = outreach.load()
+    except outreach.CardsError as e:
+        return _broken(e)
+    if not any(u in cards for u in o["urls"]):
         # In front, not appended: the panel shows these in queue order, and file order is
         # the fallback for entries the runner has already drained off the queue -- newest
         # first is the right fallback, they are the ones you were about to write to.
-        dig = {o["url"]: {
-            "url": o["url"],
-            "company": o["company"],
-            "title": o["title"],
-            "apply_url": o.get("apply_url", ""),
-            "cities": o.get("cities", []),
-            "score": o.get("score"),
-            "added_at": datetime.now(timezone.utc).isoformat(),
-            "note": "",
-        }, **dig}
-        _save_dig(dig)
-    return {"url": body.url, "dig": True, "count": len(dig)}
+        at = datetime.now(timezone.utc).isoformat()
+        cards = {o["url"]: outreach.new_card(o, at), **cards}
+        outreach.save(cards)
+    return {"url": body.url, "dig": True, "count": len(cards)}
+
+
+class DigRemoveBody(BaseModel):
+    url: str
+    force: bool = False
 
 
 @app.post("/api/dig/remove")
-def api_dig_remove(body: UrlBody):
-    dig = _dig()
-    for u in _offer_urls(body.url):
-        dig.pop(u, None)
-    _save_dig(dig)
-    return {"url": body.url, "dig": False, "count": len(dig)}
+def api_dig_remove(body: DigRemoveBody):
+    """Drop a card. One that holds contacts or a draft is refused unless `force` -- the pick
+    cycle passes through here, and ten minutes of digging must not vanish on one click."""
+    try:
+        cards = outreach.load()
+    except outreach.CardsError as e:
+        return _broken(e)
+    keys = [u for u in _offer_urls(body.url) if u in cards]
+    worked = [u for u in keys if outreach.has_contacts(cards[u]) or outreach.has_draft(cards[u])]
+    if worked and not body.force:
+        return {"url": body.url, "dig": True, "needs_force": True,
+                "reason": "this card holds contacts or a draft"}
+    for u in keys:
+        del cards[u]
+    if keys:
+        outreach.save(cards)
+    return {"url": body.url, "dig": False, "count": len(cards)}
 
 
-class DigNoteBody(BaseModel):
+class DigUpdateBody(BaseModel):
     url: str
-    note: str = ""
+    fields: dict[str, str]
 
 
-@app.post("/api/dig/note")
-def api_dig_note(body: DigNoteBody):
-    """Your draft of the outreach: the angle, who to reach, what to ask. Stored against the
-    link the entry was filed under, not necessarily the one you typed it from."""
-    dig = _dig()
-    key = next((u for u in _offer_urls(body.url) if u in dig), None)
+@app.post("/api/dig/update")
+def api_dig_update(body: DigUpdateBody):
+    """Save the /outreach editor: any of note, email, other, subject, body, cv. Only the fields
+    sent are touched, so a field an agent filled meanwhile survives a save of the others. The
+    approval stamp is not one of them -- that is /api/dig/approve's alone."""
+    try:
+        cards = outreach.load()
+    except outreach.CardsError as e:
+        return _broken(e)
+    key = _dig_key(cards, body.url)
     if key is None:
-        return {"url": body.url, "note": None, "reason": "not on the dig list"}
-    dig[key]["note"] = body.note.strip()
-    _save_dig(dig)
-    return {"url": key, "note": dig[key]["note"]}
+        return JSONResponse({"error": "not on the dig list"}, status_code=404)
+    card = cards[key]
+    for k, v in body.fields.items():
+        if k not in outreach.EDITABLE:
+            continue
+        v = outreach.text(v)
+        card[k] = v.strip() if k in ("email", "subject", "cv") else v.rstrip()
+    outreach.save(cards)
+    return _card_view(card, outreach.Context(siblings=_offer_urls))
+
+
+class DigApproveBody(BaseModel):
+    url: str
+    on: bool
+
+
+@app.post("/api/dig/approve")
+def api_dig_approve(body: DigApproveBody):
+    """OK to send: stamp the card with a fingerprint of exactly what would go out now. Any
+    later edit to the email, subject, body or CV voids it by itself. `on: false` withdraws."""
+    try:
+        cards = outreach.load()
+    except outreach.CardsError as e:
+        return _broken(e)
+    key = _dig_key(cards, body.url)
+    if key is None:
+        return JSONResponse({"error": "not on the dig list"}, status_code=404)
+    card, ctx = cards[key], outreach.Context(siblings=_offer_urls)
+    if body.on:
+        cv = outreach.cv_of(card, ctx)
+        probs = outreach.problems(card, cv)
+        if not outreach.has_draft(card):
+            probs = ["there is no draft to approve"]
+        if probs:
+            return JSONResponse({"error": "fix first: " + "; ".join(probs)}, status_code=409)
+        card["approved"] = outreach.stamp(card, cv)
+    else:
+        card.pop("approved", None)
+    outreach.save(cards)
+    return _card_view(card, ctx)
+
+
+@app.get("/api/cvs")
+def api_cvs():
+    """Every CV PDF under src/CV_PDF, repo-relative -- the outreach page's CV dropdown."""
+    return {"cvs": outreach.cvs()}
+
+
+# ---- sending ---------------------------------------------------------------------------------
+#
+# The Send button runs send_outreach.py --send, the same command as by hand, so every rule
+# stays in one place: the sender re-judges each card, paces the emails minutes apart and logs
+# them. That takes up to ~20 minutes, so it runs as a child process writing SEND_LOG and the
+# page polls it. The child shares app.py's console: stopping the server stops the run, which is
+# safe -- whatever did not leave yet is simply still approved.
+
+SEND_LOG = HERE / "data" / "outreach_send.log"
+_sending = {"proc": None, "started": None}
+
+
+def _send_state():
+    p = _sending["proc"]
+    running = bool(p and p.poll() is None)
+    log = SEND_LOG.read_text(encoding="utf-8", errors="replace") if SEND_LOG.exists() else ""
+    return {"running": running, "started": _sending["started"],
+            "exit": None if running or not p else p.returncode,
+            "log": log[-8000:], "has_password": bool(send_outreach.password())}
+
+
+@app.get("/api/outreach/send")
+def api_send_state():
+    return _send_state()
+
+
+class SendBody(BaseModel):
+    urls: list[str]
+
+
+@app.post("/api/outreach/send")
+def api_send(body: SendBody):
+    """Send these cards, in this order -- the ones the page listed in its confirm. A JSON body is
+    required on purpose: a cross-site form can't send one, so no other page can press this."""
+    if _send_state()["running"]:
+        return JSONResponse({"error": "a send is already running"}, status_code=409)
+    if not body.urls:
+        return JSONResponse({"error": "no cards to send"}, status_code=400)
+    if not send_outreach.password():
+        return JSONResponse({"error": "GMAIL_APP_PASSWORD is not set"}, status_code=409)
+    cmd = [sys.executable, "-u", str(HERE / "send_outreach.py"), "--send"]
+    for u in body.urls:
+        cmd += ["--url", u]
+    started = datetime.now().astimezone().isoformat(timespec="seconds")
+    # The sender prints — and → ; a child writing to a file would otherwise use the ANSI codepage.
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    with open(SEND_LOG, "w", encoding="utf-8") as log:
+        log.write(f"started {started.replace('T', ' ')[:16]} · {len(body.urls)} card(s)\n")
+        log.flush()
+        _sending["proc"] = subprocess.Popen(cmd, cwd=ROOT, stdout=log,
+                                            stderr=subprocess.STDOUT, env=env)
+    _sending["started"] = started
+    return _send_state()
 
 
 # The pages share static/offer.js + offer.css, and StaticFiles sends no Cache-Control, so a
@@ -642,6 +811,11 @@ def harvest_page():
 @app.get("/history")
 def history_page():
     return _page(HISTORY_PAGE)
+
+
+@app.get("/outreach")
+def outreach_page():
+    return _page(OUTREACH_PAGE)
 
 
 if __name__ == "__main__":

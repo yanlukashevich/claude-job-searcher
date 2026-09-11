@@ -7,6 +7,7 @@ Two Windows traps every script here must respect:
 import gzip
 import hashlib
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -195,6 +196,17 @@ def write_jsonl(path, records):
         for r in records:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     tmp.replace(path)
+
+
+def write_json(path, obj):
+    """Replace a JSON file in one step: write a sibling .tmp, then os.replace it over the
+    target. os.replace is atomic on Windows too, so a reader -- run_batch.py draining the
+    queue while you click, the outreach sender between two emails -- never sees a half-written
+    file, and a crash mid-write leaves the old one intact."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def union_sources(stored, incoming):

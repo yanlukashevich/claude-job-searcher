@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outreach — dig-deeper cards</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  header{padding:14px 18px;border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0;display:inline-block}
+  .sub{color:var(--dim);font-size:12px;margin-top:4px;max-width:760px}
+  .bar{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  input[type=search],input[type=text],select,textarea{background:var(--card);color:var(--fg);
+    border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px;
+    font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .chip{background:var(--card);border:1px solid var(--line);color:var(--fg);border-radius:14px;
+    padding:4px 12px;font-size:12.5px;cursor:pointer;user-select:none;white-space:nowrap}
+  .chip:hover{border-color:var(--accent)}
+  .chip .n{color:var(--dim);font-size:11px;margin-left:5px}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .chip.on .n{color:rgba(255,255,255,.8)}
+  /* The list, and the editor that stays put beside it -- the cockpit's panel shape turned
+     around: here the card is the main thing. */
+  .wrap{display:grid;grid-template-columns:340px minmax(0,1fr);gap:22px;align-items:start;
+    padding:14px 18px;max-width:1300px}
+  @media (max-width:900px){ .wrap{grid-template-columns:minmax(0,1fr)} }
+  #list{min-width:0}
+  .card{display:block;border:1px solid var(--line);border-radius:7px;background:var(--card);
+    padding:7px 10px;margin:0 0 6px;cursor:pointer;color:inherit;text-decoration:none}
+  .card:hover{border-color:var(--accent)}
+  .card.sel{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+  .card .l1{display:flex;gap:7px;align-items:baseline}
+  .card .co{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .card .sc{color:var(--dim);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .card .ti{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .card .fl{font-size:11px;margin-top:2px}
+  .fl .h{color:var(--warn)} .fl .p{color:var(--bad)}
+  #ed{min-width:0;position:sticky;top:14px}
+  @media (max-width:900px){ #ed{position:static} }
+  .edhead h2{font-size:17px;margin:0} .edhead .co{color:var(--dim);margin-top:2px}
+  .edhead a{color:var(--accent);text-decoration:none} .edhead a:hover{text-decoration:underline}
+  .appst{font-size:12.5px;margin-top:6px}
+  .warnbox,.probbox{border-radius:6px;padding:7px 10px;margin-top:8px;font-size:12.5px}
+  .warnbox{border:1px solid var(--warn);color:var(--warn)}
+  .probbox{border:1px solid var(--bad);color:var(--bad)}
+  .probbox ul{margin:2px 0 0;padding-left:18px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:14px 0 0;padding:8px 12px 12px}
+  legend{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;padding:0 5px}
+  label{display:block;font-size:12px;color:var(--dim);margin:8px 0 3px}
+  label .hint{opacity:.8}
+  .f{width:100%}
+  textarea.f{resize:vertical;line-height:1.45}
+  #body{min-height:320px}
+  .actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap;
+    position:sticky;bottom:0;background:var(--bg);padding:8px 0}
+  .actions button{padding:7px 14px;font-size:13px}
+  button.ok{background:var(--good);border-color:var(--good);color:#fff;font-weight:600}
+  button.stale{background:var(--warn);border-color:var(--warn);color:#111;font-weight:600}
+  .foot{font-size:11px;color:var(--dim);margin-top:18px;border-top:1px solid var(--line);
+    padding-top:9px}
+  .foot code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;
+    background:var(--card);border:1px solid var(--line);border-radius:4px;padding:3px 6px;
+    color:var(--fg);display:block;white-space:pre-wrap;margin-top:5px}
+  .foot .cmdnote{display:block;margin-top:2px}
+  .err{color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:10px 12px;
+    font-size:13px;overflow-wrap:anywhere}
+  #send{margin-left:auto;padding:7px 14px;font-size:13px}
+  #sendbox{margin-top:10px;max-width:1000px;font-size:12.5px}
+  #sendbox:empty{display:none}
+  .sendst{border:1px solid var(--line);border-radius:6px;padding:7px 10px;background:var(--card)}
+  .sendst.run{border-color:var(--accent)} .sendst.fail{border-color:var(--bad);color:var(--bad)}
+  .sendst.done{border-color:var(--good-2)}
+  .sendst details{margin-top:4px;color:var(--dim)} .sendst summary{cursor:pointer}
+  .sendst pre{max-height:240px;overflow:auto;margin:6px 0 0;padding:7px 9px;font-size:11.5px;
+    background:var(--bg);border:1px solid var(--line);border-radius:5px;white-space:pre-wrap;
+    color:var(--fg)}
+  .sendst code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
+    background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 5px;
+    color:var(--fg);display:inline-block;margin-top:4px;overflow-wrap:anywhere}
+</style>
+<script src="/static/offer.js"></script></head><body>
+<header>
+  <h1>Outreach</h1><a class="back" href="/">← back to cockpit</a>
+  <a class="back" href="/history">📋 history</a>
+  <div class="sub">One card per dig-deeper offer, furthest along first: approved, then complete
+    drafts, then drafts still missing something, contacts only, nothing yet (queue order within
+    each). A card fills up in stages —
+    <b>no contact</b> → <b>contacts</b> (an email, or anything in "other") → <b>draft</b>
+    (subject + body) → <b>approved</b> (you clicked OK to send) — and leaves this list once it
+    has been mailed; <a class="back" style="margin:0" href="/history">history</a> shows the
+    email on the offer's row. Agents can fill the same fields straight in
+    <code>finder/data/dig_deeper.json</code>; this page re-reads the file whenever you come back
+    to the tab. Changing the email, subject, body or CV after approving voids the approval.</div>
+  <div class="bar">
+    <span id="chips"></span>
+    <input type="search" id="q" placeholder="filter company / title…">
+    <span class="status" id="cnt"></span>
+    <button class="tool primary" id="send" disabled>✉ Send approved</button>
+  </div>
+  <div id="sendbox"></div>
+</header>
+<div class="wrap">
+  <div id="list"></div>
+  <div id="ed"></div>
+</div>
+<script>
+// esc / attr / stageChip come from offer.js
+let CARDS=[], ERROR=null, CVS=[];
+let SEL=null;                 // the url of the card in the editor
+let FILTER='';                // '' = every stage
+let DIRTY=false;              // the editor holds edits not yet saved
+const FIELDS=['email','other','subject','cv','body','note'];
+const when=s=>(s||'').replace('T',' ').slice(0,16);
+
+async function load(){
+  const d=await fetch('/api/dig').then(r=>r.json());
+  CARDS=d.items||[]; ERROR=d.error||null;
+  // The card being edited can vanish under you (the sender mailed it, an agent dropped it);
+  // its unsaved edits must not then be saved onto whichever card takes its place.
+  const gone=SEL && !CARDS.some(c=>c.url===SEL);
+  if(gone) DIRTY=false;
+  if(!SEL||gone) SEL=fromHash()||(CARDS[0]&&CARDS[0].url)||null;
+  renderList();
+  if(!DIRTY) renderEd();
+}
+
+function fromHash(){
+  const h=decodeURIComponent(location.hash.slice(1));
+  return CARDS.some(c=>c.url===h)?h:null;
+}
+
+function renderList(){
+  renderSend();
+  const counts={}; CARDS.forEach(c=>counts[c.stage]=(counts[c.stage]||0)+1);
+  document.getElementById('chips').innerHTML=['','approved','draft','contacts','no contact']
+    .map(s=>`<span class="chip${FILTER===s?' on':''}" data-s="${attr(s)}">${s||'all'}`
+      +`<span class="n">${s?(counts[s]||0):CARDS.length}</span></span>`).join(' ');
+  const list=document.getElementById('list');
+  if(ERROR){ list.innerHTML=`<div class="err">${esc(ERROR)}</div>`; return; }
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const shown=CARDS.filter(c=>(!FILTER||c.stage===FILTER)
+    &&(!q||((c.company||'')+' '+(c.title||'')).toLowerCase().includes(q)));
+  document.getElementById('cnt').textContent=`${shown.length} of ${CARDS.length} cards`;
+  if(!shown.length){ list.innerHTML='<div class="empty">No cards match.</div>'; return; }
+  list.innerHTML=shown.map(c=>{
+    const flags=[];
+    if(c.held && (c.stage==='draft'||c.stage==='approved')) flags.push('<span class="h">held</span>');
+    if(c.approval_stale) flags.push('<span class="h">approval stale</span>');
+    if(c.problems&&c.problems.length) flags.push(`<span class="p">${c.problems.length} problem${c.problems.length>1?'s':''}</span>`);
+    return `<a class="card${c.url===SEL?' sel':''}" href="#${attr(encodeURIComponent(c.url))}">
+      <div class="l1">${stageChip(c)}<span class="co">${esc(c.company||'?')}</span>
+        <span class="sc">${c.score==null?'':(c.score>0?'+':'')+c.score}</span></div>
+      <div class="ti">${esc(c.title||'')}</div>
+      ${flags.length?`<div class="fl">${flags.join(' · ')}</div>`:''}
+    </a>`;
+  }).join('');
+}
+
+function appLine(a){
+  if(!a) return '';
+  if(a.manual_at && !a.outcome) return `applied by me · ${esc(when(a.manual_at))}`;
+  if(!a.outcome) return '<span class="neg">not applied yet</span>';
+  const cls=a.sent?'pos':'neg';
+  return `bot · <span class="${cls}">${esc(a.outcome)}</span> · ${esc(when(a.at))}`
+    +(a.manual_at?` · marked applied by me ${esc(when(a.manual_at))}`:'');
+}
+
+function cvOptions(c){
+  const opts=[`<option value="">the bot's CV for this offer — ${esc(c.cv_used||'unknown')}</option>`];
+  const list=CVS.slice();
+  if(c.cv && !list.includes(c.cv)) list.unshift(c.cv);   // a path typed into the file by hand
+  for(const p of list)
+    opts.push(`<option value="${attr(p)}"${p===c.cv?' selected':''}>${esc(p.replace('src/CV_PDF/',''))}</option>`);
+  return opts.join('');
+}
+
+function approveBtn(c){
+  if(c.approved_ok) return `<button class="tool ok" id="approve" data-on="0"
+    title="The sender will mail exactly this. Click to withdraw the approval.">✓ Approved — withdraw</button>`;
+  const blocked=!(c.subject||c.body) || (c.problems&&c.problems.length);
+  if(c.approval_stale) return `<button class="tool stale" id="approve" data-on="1"${blocked?' disabled':''}
+    title="The draft changed after you approved it, so it will not be sent. Read it again, then approve.">Approval stale — approve again</button>`;
+  return `<button class="tool primary" id="approve" data-on="1"${blocked?' disabled':''}
+    title="Stamp exactly this email, subject, body and CV as OK to send.">OK to send</button>`;
+}
+
+function renderEd(){
+  const ed=document.getElementById('ed');
+  const c=CARDS.find(x=>x.url===SEL);
+  if(ERROR||!c){ ed.innerHTML=ERROR?'':'<div class="empty">No card selected.</div>'; return; }
+  let st='';
+  if(c.sent_at) st=`<div class="warnbox">Already sent to this address on ${esc(when(c.sent_at))};
+    the next sender run removes the card.</div>`;
+  if(c.problems&&c.problems.length) st+=`<div class="probbox">Won't send until fixed:
+    <ul>${c.problems.map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`;
+  ed.innerHTML=`<div class="edhead">
+      <h2>${esc(c.title||'')}</h2>
+      <div class="co">${esc(c.company||'')} · <a href="${attr(c.url)}" target="_blank" rel="noopener">the offer ↗</a>
+        ${c.apply_url?` · <a href="${attr(c.apply_url)}" target="_blank" rel="noopener">apply page ↗</a>`:''}
+        ${(c.cities||[]).length?' · '+esc(c.cities.join(', ')):''}</div>
+      <div class="appst">application: ${appLine(c.application)}</div>
+      ${st}
+    </div>
+    <fieldset><legend>Contact</legend>
+      <label for="email">Email <span class="hint">— the one address the email goes to</span></label>
+      <input type="text" class="f" id="email" value="${attr(c.email||'')}" placeholder="praca@company.pl">
+      <label for="other">Other ways to reach them <span class="hint">— free text: names, roles, a second address, phone, LinkedIn, where you found it</span></label>
+      <textarea class="f" id="other" rows="3">${esc(c.other||'')}</textarea>
+    </fieldset>
+    <fieldset><legend>Draft</legend>
+      <label for="subject">Subject</label>
+      <input type="text" class="f" id="subject" value="${attr(c.subject||'')}">
+      <label for="cv">CV attached</label>
+      <select class="f" id="cv">${cvOptions(c)}</select>
+      <label for="body">Body <span class="hint">— sent exactly as written: one line per paragraph, signature included</span></label>
+      <textarea class="f" id="body">${esc(c.body||'')}</textarea>
+    </fieldset>
+    <fieldset><legend>Notes</legend>
+      <textarea class="f" id="note" rows="3" placeholder="your angle, what to ask, anything">${esc(c.note||'')}</textarea>
+    </fieldset>
+    <div class="actions">
+      <button class="tool" id="save">Save</button>
+      ${approveBtn(c)}
+      <span class="status" id="edst"></span>
+    </div>
+    <div class="foot">The sender mails only approved cards whose application went out, at most
+      5 per run, 2–5 minutes apart, and logs each email with its text before removing the card.
+      The ✉ Send button at the top runs it for the approved cards you confirm; by hand:
+      <code>python finder\\send_outreach.py</code><span class="cmdnote">dry run: READY, or why
+      not, for every card</span>
+      <code>python finder\\send_outreach.py --send</code><span class="cmdnote">sends; needs
+      $env:GMAIL_APP_PASSWORD. Add --test-to you@gmail.com --max 1 to mail yourself first</span>
+    </div>`;
+  DIRTY=false;
+}
+
+function status(msg, cls){
+  const s=document.getElementById('edst'); if(!s) return;
+  s.textContent=msg; s.className='status'+(cls?' '+cls:'');
+}
+
+async function post(path, body){
+  const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(body)});
+  return r.json();
+}
+
+// A save or an approval can move the card (the list is sorted by how far along it is), so the
+// whole list is re-read rather than the one card patched in place.
+async function took(){
+  DIRTY=false; await load();
+}
+
+async function save(){
+  if(!SEL) return true;
+  const fields={};
+  for(const f of FIELDS){ const el=document.getElementById(f); if(el) fields[f]=el.value; }
+  const d=await post('/api/dig/update',{url:SEL, fields});
+  if(d.error){ status(d.error,'err'); return false; }
+  await took(); status('✓ saved','ok');
+  return true;
+}
+
+// ---- sending ----
+// The button runs send_outreach.py --send on the server for exactly the cards listed in the
+// confirm; the sender itself re-checks each one, paces them and logs them.
+const SEND_MAX=5;             // send_outreach.py's --max default: one run never sends more
+let SEND={running:false,log:'',has_password:true};
+let POLL=null, SEENLOG='';
+
+function renderSend(){
+  const ready=CARDS.filter(c=>c.ready), n=Math.min(ready.length,SEND_MAX);
+  const btn=document.getElementById('send');
+  btn.disabled=SEND.running||!n||!SEND.has_password;
+  btn.textContent=SEND.running?'✉ sending…'
+    :`✉ Send ${n||''} approved`.replace('  ',' ')+(ready.length>n?` (of ${ready.length})`:'');
+  btn.title=!SEND.has_password?'set GMAIL_APP_PASSWORD first — see below'
+    :n?'mail the approved cards whose application went out'
+    :'no card is ready: approve a finished draft whose application went out';
+  const box=document.getElementById('sendbox');
+  let h='';
+  if(!SEND.has_password) h+=`<div class="sendst fail">Sending needs a Gmail App Password
+    (myaccount.google.com → Security → 2-Step Verification → App passwords). Set it once in
+    PowerShell — no restart needed:<br><code>[Environment]::SetEnvironmentVariable("GMAIL_APP_PASSWORD", "xxxx xxxx xxxx xxxx", "User")</code></div>`;
+  if(SEND.log) h+=sendLogHtml();
+  box.innerHTML=h;
+  const pre=box.querySelector('pre'); if(pre) pre.scrollTop=pre.scrollHeight;
+}
+
+function sendLogHtml(){
+  const lines=SEND.log.split('\n').map(l=>l.trim()).filter(Boolean);
+  const sent=lines.filter(l=>l.startsWith('SENT ')).length;
+  const fatal=lines.find(l=>l.startsWith('FATAL'));
+  const started=when((lines[0]||'').replace(/^started /,'').split(' · ')[0]);
+  let cls, head;
+  if(SEND.running){
+    const last=lines[lines.length-1]||'';
+    cls='run'; head=`Sending — ${sent} sent so far`
+      +(last.startsWith('next in')?` · ${esc(last.replace(' ...',''))}`:'')
+      +' · keep app.py running until it finishes';
+  }else if(fatal||(SEND.exit!=null&&SEND.exit!==0)){
+    cls='fail'; head=`Stopped after ${sent} sent: ${esc(fatal||'exit code '+SEND.exit)}`;
+  }else{
+    cls='done'; head=`Last send (${esc(started)}): ${sent} sent`;
+  }
+  return `<div class="sendst ${cls}">${head}
+    <details${SEND.running?' open':''}><summary>sender output</summary>
+    <pre>${esc(SEND.log)}</pre></details></div>`;
+}
+
+async function sendState(){
+  SEND=await fetch('/api/outreach/send').then(r=>r.json());
+  // Every email that leaves takes its card off the list: re-read the cards when the log moves.
+  if(SEND.log!==SEENLOG){ SEENLOG=SEND.log; await load(); } else renderSend();
+  if(SEND.running && !POLL) POLL=setInterval(sendState,4000);
+  if(!SEND.running && POLL){ clearInterval(POLL); POLL=null; }
+}
+
+document.getElementById('send').addEventListener('click',async ()=>{
+  const go=CARDS.filter(c=>c.ready).slice(0,SEND_MAX);
+  if(!go.length) return;
+  const mins=(go.length-1)*5;
+  if(!confirm(`Send ${go.length} email${go.length>1?'s':''} now — to the employers, for real?\n\n`
+      +go.map(c=>`• ${c.company} → ${c.email}`).join('\n')
+      +(go.length>1?`\n\nThey go out 2–5 minutes apart (up to ${mins} min). `
+                    +'Keep app.py running until it finishes.':''))) return;
+  if(DIRTY && !await save()) return;
+  const d=await post('/api/outreach/send',{urls:go.map(c=>c.url)});
+  if(d.error){ alert('Not sent: '+d.error); return; }
+  await sendState();
+});
+
+document.getElementById('ed').addEventListener('input',e=>{
+  if(!FIELDS.includes(e.target.id)) return;
+  DIRTY=true; status('unsaved changes');
+});
+document.getElementById('ed').addEventListener('change',e=>{
+  if(e.target.id==='cv'){ DIRTY=true; status('unsaved changes'); }
+});
+
+document.getElementById('ed').addEventListener('click',async e=>{
+  if(e.target.id==='save'){ await save(); return; }
+  if(e.target.id==='approve'){
+    const on=e.target.dataset.on==='1';
+    // What gets stamped is what is on disk, so unsaved edits are saved first.
+    if(DIRTY && !await save()) return;
+    const d=await post('/api/dig/approve',{url:SEL, on});
+    if(d.error){ status(d.error,'err'); return; }
+    await took();
+    status(on?(d.ready?'✓ approved — ✉ Send at the top mails it'
+                      :'✓ approved — it waits until the application is sent')
+             :'approval withdrawn', on?'ok':'');
+  }
+});
+
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); save(); }
+});
+
+// Switching cards saves the one you were editing -- nothing here is sent without approval,
+// and a save that changed the draft voids an old approval by itself.
+window.addEventListener('hashchange',async ()=>{
+  const h=fromHash(); if(!h||h===SEL) return;
+  if(DIRTY && !await save()){ history.replaceState(null,'','#'+encodeURIComponent(SEL)); return; }
+  SEL=h; renderList(); renderEd();
+});
+
+document.getElementById('chips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c) return;
+  FILTER=c.dataset.s; renderList();
+});
+document.getElementById('q').addEventListener('input',renderList);
+
+// An agent editing dig_deeper.json, or the sender removing what it mailed, changes the cards
+// while this tab sits in the background -- re-read on the way back in. Unsaved edits win: the
+// editor is only redrawn when it holds none.
+window.addEventListener('focus',()=>{ load().then(()=>{ if(DIRTY) status('unsaved changes'
+  +' — the file may have changed meanwhile; Save writes only these fields'); }); });
+window.addEventListener('beforeunload',e=>{ if(DIRTY){ e.preventDefault(); e.returnValue=''; } });
+
+(async()=>{
+  CVS=(await fetch('/api/cvs').then(r=>r.json())).cvs||[];
+  await load();
+  await sendState();
+})();
+</script>
+</body></html>

@@ -38,8 +38,8 @@
   .qrow{display:flex;gap:7px;align-items:baseline;padding:5px 0;
     border-bottom:1px solid var(--line);font-size:12px}
   .qrow .qsc{font-weight:700;font-variant-numeric:tabular-nums;min-width:24px;text-align:right}
-  /* Drag starts here and nowhere else -- the row's own text is a link and its note is a
-     textarea, and both need the pointer for their own job. */
+  /* Drag starts here and nowhere else -- the row's own text is a link, which needs the
+     pointer for its own job. */
   .qrow .qgrip{cursor:grab;color:var(--dim);opacity:.3;font-size:13px;line-height:1;
     padding:0 1px;user-select:none;flex:0 0 auto}
   .qrow:hover .qgrip{opacity:.85}
@@ -58,14 +58,12 @@
   .qrow .qx:hover{color:var(--bad)}
   /* Past the nightly cap: queued, but not running tonight. */
   .qrow.later{opacity:.5}
-  .qrow.wrap2{flex-wrap:wrap}
+  .qrow .stg,.qrow .found{flex:0 0 auto;align-self:center}
+  .qerr{color:var(--bad);font-size:12px;padding:10px 0;overflow-wrap:anywhere}
   .qempty{color:var(--dim);font-size:12px;padding:14px 0}
   .qdiv{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;
     margin:9px 0 2px;border-top:1px dashed var(--line);padding-top:6px}
   .qdiv.first{border-top:0;margin-top:0;padding-top:0}
-  .qnote{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:5px;
-    padding:4px 6px;font-size:11.5px;font-family:inherit;width:100%;margin-top:3px;
-    line-height:1.35;resize:vertical}
   .sidefoot{font-size:11px;color:var(--dim);margin-top:12px;
     border-top:1px solid var(--line);padding-top:9px}
   /* A command is a block you can read and select, not an inline blob broken mid-flag. */
@@ -137,6 +135,7 @@
     <span style="margin-left:auto"></span>
     <a class="tool" id="harvestlink" href="/harvest" title="Re-collect the live feed and mark vanished offers expired.">↻ Harvest</a>
     <a class="tool" id="historylink" href="/history" title="Every offer applied to and the details of each application.">📋 History</a>
+    <a class="tool" id="outreachlink" href="/outreach" title="The dig-deeper cards: contacts, email drafts, approval to send.">✉ Outreach</a>
   </div>
 </header>
 <div class="wrap">
@@ -421,18 +420,24 @@ function queueFoot(){
   </div>`;
 }
 
+// Each row opens its card on /outreach, where the contacts and the email are edited -- the
+// panel only says how far along each one is.
 function renderDig(){
+  if(DIG.error) return `<div class="qerr">${esc(DIG.error)}</div>`;
   if(!DIG.items.length)
     return `<div class="qempty">Nothing here yet — click a queued offer's ✓ to add it.</div>`;
-  return DIG.items.map(d=>`<div class="qrow wrap2" data-u="${attr(d.url)}">
-      ${qscore(d.score)}${qtitle(d.company,d.title,d.url)}
-      <button class="qx" data-d="${attr(d.url)}" title="drop from the dig list">×</button>
-      <textarea class="qnote" data-n="${attr(d.url)}" rows="2"
-             placeholder="what to write to them: the angle, who to reach, what to ask…"
-      >${esc(d.note||'')}</textarea>
+  return DIG.items.map(d=>`<div class="qrow" data-u="${attr(d.url)}">
+      ${qscore(d.score)}<a class="qtx" href="/outreach#${attr(encodeURIComponent(d.url))}"
+        title="${attr(d.title||'')} — open its card"><span class="qti">${esc(d.title||'')}</span>`
+        +`<span class="qco">${esc(d.company||'')}</span></a>
+      ${stageChip(d)}
+      <button class="qx" data-d="${attr(d.url)}" data-c="${attr(d.company||'')}"
+        title="drop from the dig list">×</button>
     </div>`).join('')
     +`<div class="sidefoot">Still queued for the bot as well — this is the list you work by
-      hand, top down. It is served in the queue's order, so reorder it there.
+      hand, top down: furthest along first (approved, drafts, contacts, nothing yet), queue
+      order within each. A row opens its card on <a href="/outreach">/outreach</a>, where
+      ✉ Send mails the approved ones; a sent email takes the card off this list.
       <button class="tool" id="digcopy">Copy as markdown</button></div>`;
 }
 
@@ -446,7 +451,7 @@ function renderSide(){
 }
 
 // ---- dragging a panel row ----
-// Queue order is run order -- for the bot, and for the dig list, which is served in it -- so
+// Queue order is run order -- for the bot, and for the dig list within each stage -- so
 // the drag has to end in a file write, not a DOM tweak. The row
 // is moved live while you drag; on drop the new order is POSTed and the panel is redrawn from
 // what came back -- which is also what puts the "tonight's N" divider back in the right place.
@@ -486,7 +491,7 @@ document.getElementById('sidebody').addEventListener('dragend',async ()=>{
   const r=await fetch('/api/queue/reorder',{method:'POST',
     headers:{'content-type':'application/json'},body:JSON.stringify({urls})});
   QUEUE=await r.json();
-  DIG=await fetch('/api/dig').then(x=>x.json());   // served in queue order: re-sorted by this
+  DIG=await fetch('/api/dig').then(x=>x.json());   // queue order within a stage: re-sorted by this
   renderSide();
 });
 
@@ -539,22 +544,15 @@ document.getElementById('side').addEventListener('click',async e=>{
     // The two lists are dropped separately: unqueueing an offer must not throw away the
     // contact you spent ten minutes digging up, and vice versa.
     if(x.dataset.q!=null) await post('/api/queue/remove', x.dataset.q);
-    else                  await post('/api/dig/remove',   x.dataset.d);
+    else if(!await dropDig(x.dataset.d, x.dataset.c)) return;
     await sideRefresh(); return;
   }
   if(e.target.id==='digcopy'){ await copyFlash(e.target, digMarkdown(DIG.items)); return; }
 });
 
-// Blur, not input: one write per note you finish typing, not one per keystroke. Capturing,
-// because blur does not bubble.
-document.getElementById('side').addEventListener('blur',async e=>{
-  const n=e.target.closest('.qnote'); if(!n) return;
-  const r=await fetch('/api/dig/note',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({url:n.dataset.n, note:n.value})});
-  const d=await r.json();
-  const it=DIG.items.find(x=>x.url===n.dataset.n);
-  if(it && d.note!=null) it.note=d.note;
-}, true);
+// An agent filling cards in dig_deeper.json, or the sender removing what it mailed, changes
+// the panel while this tab sits in the background -- catch up when you come back to it.
+window.addEventListener('focus', loadSide);
 
 load();
 </script>
