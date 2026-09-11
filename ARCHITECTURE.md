@@ -44,7 +44,10 @@ apply step can be run and reviewed separately.
 - **Dedup:** the cockpit joins `applications_log.jsonl` (bot) and `manual_applied.json` (you)
   onto each offer as a visible **applied** status, so already-applied offers are skipped by
   the human at pick time — no automatic set-filter (that was `legacy/build_worklist.ps1`).
-- **Output:** `runner/data/worklist.json` — written straight from the cockpit's picks.
+- **Output:** `runner/data/worklist.json` — a persistent **queue**, not a batch list. One click
+  in the cockpit puts an offer in it server-side; it stays there across refreshes and days until
+  the runner applies to it and removes it. A second click also files the offer in
+  `finder/data/dig_deeper.json`, the outreach list you work by hand.
 
 ### 3.2 Applier
 - **Input:** one offer, handed to it in the task prompt by the runner, + `profile.md` +
@@ -67,7 +70,9 @@ apply step can be run and reviewed separately.
 | `cv/` | The CV file(s), possibly variants per stack. |
 | `runner/data/applications_log.jsonl` | Audit trail of every outcome; also the anti-double-apply record. |
 | `finder/data/offers_db.jsonl` | Every offer ever harvested; the finder's source of truth. |
-| `runner/data/worklist.json` | Finder cockpit output; runner input (the offers picked for this batch). |
+| `runner/data/worklist.json` | The apply **queue**: cockpit writes, runner drains. An offer leaves it once it has a log line. |
+| `runner/data/batch_log.jsonl` | One line per batch — what a night attempted, applied, blocked, cost, and how it ended. |
+| `finder/data/dig_deeper.json` | The outreach list: offers to also chase by hand, with your note on what to write them. |
 | `runner/data/todo_manual.md` | Offers the tool could not finish, with URL + reason, for manual handling. |
 
 ### 4.1 `profile.md` (facts only)
@@ -148,8 +153,8 @@ Components:
 
 | # | Component | Responsibility | Main tools |
 |---|-----------|----------------|-----------|
-| 0 | Finder cockpit | harvest, score, join applied-status, human picks → `worklist.json` | `finder/` (Python, §5C) |
-| 1 | Runner | read `worklist.json`, launch one applier per offer, write the log | `runner/run_batch.py` (Python, §5C) |
+| 0 | Finder cockpit | harvest, score, join applied-status, human picks → the `worklist.json` queue | `finder/` (Python, §5C) |
+| 1 | Runner | drain the queue, launch one applier per offer, write the log | `runner/run_batch.py` (Python, §5C) |
 | 2 | Navigator | open offer, click Apply, follow redirects/new tabs | `navigate`, `tabs_*`, `find` |
 | 3 | Apply-type detector | classify page into one of 5 types | `get_page_text`, `find` |
 | 4 | State reader | extract current form structure/fields | `get_page_text`, `read_page` |
@@ -259,11 +264,12 @@ talked into: each offer is a separate OS process.
 ```
 finder/ cockpit                         CODE — deterministic, zero agent tokens
   finder/data/offers_db.jsonl + runner/data/applications_log.jsonl (joined for applied-status)
-  → score + human picks the unapplied ones
-  → runner/data/worklist.json
+  → score + human clicks the unapplied ones, one at a time, whenever
+  → runner/data/worklist.json          the QUEUE — persistent, added to continuously
 
 runner/run_batch.py = Runner            CODE — deterministic, zero agent tokens
-  reads runner/data/worklist.json (never re-filters it)
+  23:00 nightly (runner/nightly.ps1) or by hand
+  reads runner/data/worklist.json (never re-filters it), takes --limit N off the front
   brings up the chrome-mcp profile if CDP port 9222 is silent
   for each offer, sequentially:
       launch a FRESH `claude -p`  ← the per-offer isolation of this section
@@ -272,7 +278,22 @@ runner/run_batch.py = Runner            CODE — deterministic, zero agent token
         attaches the CV via mcp_webfile (raw CDP; also isTrusted=true)
         RETURNS one JSON object (runner/log_line.schema.json, enforced by --json-schema)
       the runner stamps the time and writes runner/data/applications_log.jsonl / todo_manual.md
+      → and only then removes the offer from the queue
+  one summary line per batch → runner/data/batch_log.jsonl
 ```
+
+**The queue's one rule: removal is tied to the log line, not to success.** `blocked` and
+`filled_review` are real attempts with an audit line behind them, so those offers leave too —
+re-applying to them tomorrow is exactly what the queue exists to prevent. Only an offer the
+batch never reached keeps its place.
+
+Which is what makes the **usage limit** survivable. The CLI has no subtype for a quota wall: it
+reports `error_during_execution` and puts the sentence in a top-level `errors` array. The runner
+matches that (plus HTTP 429 and `error_max_budget_usd`) and **stops the batch without logging
+anything** — no `applier-failure` line, so the cockpit does not read the offer as attempted, and
+no removal, so it is first in line tomorrow night. `main()` returns 2 so Task Scheduler records
+the night as failed. Before this, a wall burned every remaining offer as `blocked` and quietly
+poisoned them.
 
 The applier's launch line carries no write tools at all (`--tools Read Glob`), so a half-written
 log line stopped being a failure mode, and the timestamp now comes from the Windows clock
@@ -332,12 +353,13 @@ Inter-offer delay is **5–10 s**, not the old 90 s jitter. Each application alr
 minutes and varies by form and composed text, so the submission interval is deeply irregular
 before any jitter is added — extra randomness is theatre.
 
-The control that actually binds is **volume**, which is what watcher #2 in §5B scores. There is
-no automatic daily cap: the finder cockpit writes a worklist of exactly the offers the human
-ticks, and already-applied offers are marked so they aren't re-picked. Volume is therefore
-bounded per *batch*, not per *day*, and pacing across days is a human decision — several
-back-to-back batches put several on the same calendar day. Past ~15/day the 5–10 s gaps should
-come back up.
+The control that actually binds is **volume**, which is what watcher #2 in §5B scores. Two
+things bound it. The queue holds exactly the offers the human clicked, and already-applied
+offers are marked so they aren't re-picked; the nightly task then takes a fixed `--limit` off
+the front. So the daily rate is the schedule's `-Count` (10, or 3 while rolling it in), and a
+queue built up over a week drains at that rate rather than all at once. Running batches by hand
+on top of the schedule is still a human decision — several back-to-back batches put several on
+the same calendar day. Past ~15/day the 5–10 s gaps should come back up.
 
 ---
 

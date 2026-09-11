@@ -11,6 +11,12 @@ The applier is launched with `claude -p` and no write tools at all: it reads fil
 Chrome, and returns one JSON object matching `log_line.schema.json`. This runner stamps the
 time and does every write - so the timestamp is real, a half-written line is impossible, and
 the agent physically cannot touch the audit trail.
+
+The worklist is a QUEUE, not a fixed list: you keep adding to it in the cockpit, and this
+drains it. An offer leaves the queue the moment it has a log line - applied, staged or
+blocked, all three are attempts that must never be repeated. Offers the batch never reached
+stay put for the next night, which is also what a usage-limit wall produces: the batch stops
+without logging anything, so nothing is marked attempted and nothing is lost.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ TODO = DATA / "todo_manual.md"
 MCP_CONFIG = RUNNER / "applier_mcp.json"
 SCHEMA = RUNNER / "log_line.schema.json"
 RUN_LOG = DATA / "run_log.jsonl"
+BATCH_LOG = DATA / "batch_log.jsonl"   # one line per batch; nobody watches stdout at 23:00
 AUTOCLICK = RUNNER / "permission_autoclick.py"
 AUTOCLICK_LOG = DATA / "autoclick.log"
 
@@ -207,9 +214,13 @@ def envelope_meta(payload: dict) -> dict:
     is the only place a tool the playbook wants but `--tools` withholds ever shows up.
     """
     meta = {}
+    # `errors` is where a usage limit actually lands: the CLI has no subtype for a quota wall,
+    # it reports `error_during_execution` and puts the human sentence in here. Dropping it
+    # meant the one signal that must stop the batch never reached the code that decides.
     for k in ("session_id", "total_cost_usd", "num_turns", "is_error", "subtype",
               "duration_ms", "duration_api_ms", "ttft_ms", "time_to_request_ms",
-              "stop_reason", "terminal_reason", "api_error_status", "queued_turn_count"):
+              "stop_reason", "terminal_reason", "api_error_status", "queued_turn_count",
+              "errors"):
         if payload.get(k) is not None:
             meta[k] = payload[k]
 
@@ -239,8 +250,32 @@ def envelope_meta(payload: dict) -> dict:
     return meta
 
 
-def run_offer(offer: dict, mode: str, cmd: list, timeout: int):
-    """Launch one applier. Returns (structured result or None, run-log metadata)."""
+# The CLI reports a quota wall as free text, not a subtype: these are its own strings, matched
+# case-insensitively against stdout, stderr and the envelope's `errors` array.
+LIMIT_MARKERS = ("usage limit reached", "weekly usage limit", "usage limits",
+                 "credit balance is too low", "credit balance too low", "rate_limit_error")
+
+
+def hit_usage_limit(payload: dict, out: str, err: str) -> bool:
+    """Did this launch die against the account's usage limit rather than the offer?
+
+    The distinction is the whole reason the queue survives the night: an offer that failed
+    gets a `blocked / applier-failure` line and leaves the queue forever, while an offer the
+    wall stopped us from even trying must stay queued and untouched."""
+    if payload.get("api_error_status") == 429:
+        return True
+    if payload.get("subtype") == "error_max_budget_usd":
+        return True
+    blob = " ".join([out or "", err or "",
+                     json.dumps(payload.get("errors") or [], ensure_ascii=False)]).lower()
+    return any(m in blob for m in LIMIT_MARKERS)
+
+
+def run_offer(offer: dict, mode: str, cmd: list, timeout: int, n: int = 0):
+    """Launch one applier. Returns (structured result or None, run-log metadata).
+
+    A metadata dict carrying `abort` means: do not log this offer, do not consume it, stop
+    the batch. Everything else is an outcome the offer owns."""
     prompt = PROMPT.format(
         mode=mode,
         offer=json.dumps(offer, ensure_ascii=False, indent=2),
@@ -249,6 +284,14 @@ def run_offer(offer: dict, mode: str, cmd: list, timeout: int):
     env = dict(os.environ, CLAUDE_CODE_DISABLE_AUTO_MEMORY="1")
     started = time.time()
     meta = {"url": offer.get("url"), "mode": mode}
+
+    # Test hook, no CLI surface: RUNBATCH_FAKE_LIMIT=<n> makes offer n hit the wall without
+    # launching anything. A real quota wall is not something you can wait for on demand, and
+    # the abort path is the one path that must not be discovered in production.
+    if n and os.environ.get("RUNBATCH_FAKE_LIMIT") == str(n):
+        meta.update(abort="usage_limit", duration_s=0.0,
+                    failure="RUNBATCH_FAKE_LIMIT sentinel")
+        return None, meta
 
     proc = subprocess.Popen(
         cmd, cwd=str(SRC), env=env,
@@ -280,9 +323,19 @@ def run_offer(offer: dict, mode: str, cmd: list, timeout: int):
         meta["failure"] = "stdout was not JSON"
         meta["stdout_tail"] = (out or "")[-1500:]
         meta["stderr_tail"] = (err or "")[-1500:]
+        # No envelope to read, so the markers are all there is - and a wall that kills the CLI
+        # before it prints JSON is exactly the case that must not be logged as this offer's
+        # failure.
+        if hit_usage_limit({}, out, err):
+            meta["abort"] = "usage_limit"
         return None, meta
 
     meta.update(envelope_meta(payload))
+
+    if hit_usage_limit(payload, out, err):
+        meta["abort"] = "usage_limit"
+        meta["stderr_tail"] = (err or "")[-1500:]
+        return None, meta
 
     result = extract_structured(payload)
     if result is None:
@@ -375,6 +428,47 @@ def archive_transcript(session_id):
     return dest
 
 
+def write_queue(items: list) -> None:
+    """Replace worklist.json in one step: a sibling .tmp, then os.replace. The cockpit reads
+    and writes the same file while a batch runs, and os.replace is atomic on Windows too, so
+    neither side can see or leave a half-written queue. finder/app.py writes it the same way."""
+    tmp = WORKLIST.with_suffix(WORKLIST.suffix + ".tmp")
+    tmp.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, WORKLIST)
+
+
+def consume(url: str) -> int:
+    """Drop one offer from the queue. Re-reads the file first: the cockpit can add offers
+    while a batch runs, and a stale in-memory copy would erase them.
+
+    Called right after the log line is appended, never on success - `blocked` and
+    `filled_review` are real attempts with an audit line behind them, and re-applying to
+    those tomorrow is exactly what the queue exists to prevent. Only an offer the batch
+    never reached keeps its place."""
+    try:
+        items = json.loads(WORKLIST.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return -1
+    kept = [e for e in items if e.get("url") != url]
+    write_queue(kept)
+    return len(kept)
+
+
+def append_batch_log(row: dict) -> None:
+    """One line per batch. run_log.jsonl is per-offer, and at 23:00 nobody is reading stdout:
+    this is how you tell in the morning whether the night ran at all, and how it ended."""
+    BATCH_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with BATCH_LOG.open("a", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def queue_left() -> int:
+    try:
+        return len(json.loads(WORKLIST.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError):
+        return -1
+
+
 def append_run_log(meta: dict) -> None:
     RUN_LOG.parent.mkdir(parents=True, exist_ok=True)
     with RUN_LOG.open("a", encoding="utf-8", newline="\n") as f:
@@ -419,14 +513,18 @@ def main() -> int:
                     help="do not answer the browser's site-permission card; a new employer "
                          "domain then waits for you to click it")
     ap.add_argument("--timeout", type=int, default=900, help="seconds per offer (default 900)")
+    ap.add_argument("--keep", action="store_true",
+                    help="leave the queue intact; by default an offer is removed from "
+                         "worklist.json as soon as it has a log line")
     args = ap.parse_args()
 
     if not WORKLIST.exists():
-        return fail("runner/data/worklist.json is missing - pick offers in the finder cockpit "
-                    "(python finder\\app.py) and hit 'Write worklist'.")
+        return fail("runner/data/worklist.json is missing - queue offers in the finder "
+                    "cockpit (python finder\\app.py) with their pick button.")
     offers = json.loads(WORKLIST.read_text(encoding="utf-8"))
     if not offers:
-        return fail("runner/data/worklist.json is empty - pick offers in the finder cockpit.")
+        return fail("the queue is empty - the last batch drained it. Queue more offers "
+                    "in the finder cockpit.")
 
     if args.pick:
         offers = [offers[i] for i in parse_pick(args.pick, len(offers))]
@@ -447,7 +545,7 @@ def main() -> int:
     if args.dry_run:
         print("\ncommand (prompt goes on stdin, cwd = src):")
         print("  " + ps_cmdline(cmd[:-1] + ["<schema>"]))
-        print("\nqueue:")
+        print("\nqueue (nothing is launched, nothing leaves worklist.json):")
         for i, o in enumerate(offers, 1):
             print("  {:>2}. {} - {}".format(i, o.get("company"), o.get("title")))
         return 0
@@ -457,16 +555,31 @@ def main() -> int:
                     "  powershell -File tools\\mcp_webfile\\start_chrome.ps1")
 
     autoclick = None if args.no_autoclick else start_autoclick()
-    rows, metas = [], []
+    started = now_warsaw()
+    rows, metas, aborted = [], [], None
     try:
         for i, offer in enumerate(offers, 1):
             print("\n[{}/{}] {} - {}".format(i, len(offers),
                                              offer.get("company"), offer.get("title")))
-            result, meta = run_offer(offer, args.mode, cmd, args.timeout)
+            result, meta = run_offer(offer, args.mode, cmd, args.timeout, i)
+
+            # The wall, not this offer's failure. No log line means the cockpit never marks
+            # the offer attempted, and no consume() means it is simply first in line tomorrow
+            # night - so a quota wall costs a batch, never a queue.
+            if meta.get("abort"):
+                aborted = meta["abort"]
+                append_run_log(meta)
+                metas.append(meta)
+                print("      ! {} - stopping the batch, {} offer(s) left untouched"
+                      .format(aborted, len(offers) - i + 1))
+                break
+
             line = log_line(offer, result, meta)
             append_log(line)
             if line["outcome"] == "blocked":
                 append_todo(line)
+            if not args.keep:
+                meta["queue_left"] = consume(offer["url"])
             meta["outcome"] = line["outcome"]
             meta["blocked_reason"] = line["blocked_reason"]
             append_run_log(meta)
@@ -480,13 +593,34 @@ def main() -> int:
         # Standing consent to open any domain lasts exactly as long as the batch, Ctrl-C
         # and a crash included.
         if autoclick:
+            # It died once for six batches running and nobody noticed, because a batch that
+            # asks a human for every domain still finishes. Say so where the batch is read.
+            if autoclick.poll() is not None:
+                print("chrome   ! autoclick exited during the batch (code {}) - new domains "
+                      "were asked by hand from then on; see {}"
+                      .format(autoclick.returncode, AUTOCLICK_LOG.name))
             kill_tree(autoclick.pid)
 
-    summary(rows, metas, args.mode)
-    return 0
+    left = queue_left()
+    append_batch_log({
+        "started": started, "finished": now_warsaw(), "mode": args.mode,
+        "limit": args.limit, "attempted": len(rows),
+        "applied": sum(1 for r in rows
+                       if r["outcome"] in ("applied_clean", "applied_composed")),
+        "review": sum(1 for r in rows if r["outcome"] == "filled_review"),
+        "blocked": sum(1 for r in rows if r["outcome"] == "blocked"),
+        "aborted": aborted,
+        "cost_usd": round(sum(m.get("total_cost_usd") or 0.0 for m in metas), 4),
+        "queue_left": left,
+    })
+
+    summary(rows, metas, args.mode, aborted, left)
+    # Task Scheduler only ever sees the exit code, so a night stopped by the wall has to be
+    # visibly not-a-success: 2, distinct from 1 (nothing to do / misconfigured).
+    return 2 if aborted else 0
 
 
-def summary(rows: list, metas: list, mode: str) -> None:
+def summary(rows: list, metas: list, mode: str, aborted=None, left: int = -1) -> None:
     print("\n" + "=" * 78)
     width = max([len(r.get("company") or "") for r in rows] or [7])
     for r in rows:
@@ -503,8 +637,10 @@ def summary(rows: list, metas: list, mode: str) -> None:
     cost = sum(m.get("total_cost_usd") or 0.0 for m in metas)
     wall = sum(m.get("duration_s") or 0.0 for m in metas)
     api = sum(m.get("duration_api_ms") or 0 for m in metas) / 1000.0
+    # per APPLICATION, not per launch: an aborted launch produced no application and would
+    # otherwise make the night look cheaper than it was.
     print("  ${:.2f} total, ${:.2f}/offer   {:.0f}s wall, {:.0f}s of it the model"
-          .format(cost, cost / max(len(metas), 1), wall, api))
+          .format(cost, cost / max(len(rows), 1), wall, api))
 
     blocked = [r for r in rows if r["outcome"] == "blocked"]
     if blocked:
@@ -514,8 +650,14 @@ def summary(rows: list, metas: list, mode: str) -> None:
     if mode == "review":
         print("\n  review mode: every application is STAGED, not submitted. "
               "Click Submit yourself in Chrome.")
+    if aborted:
+        print("\n  STOPPED: {} - the offers not reached are still queued, untouched and "
+              "unlogged.".format(aborted))
+    if left >= 0:
+        print("  queue    {} offer(s) still in runner\\data\\worklist.json".format(left))
     print("  log      runner\\data\\applications_log.jsonl (+{} lines)".format(len(rows)))
     print("  run log  runner\\data\\run_log.jsonl")
+    print("  batch    runner\\data\\batch_log.jsonl")
 
 
 def fail(msg: str) -> int:

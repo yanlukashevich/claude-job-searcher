@@ -13,7 +13,69 @@
     padding:6px 10px;border-radius:6px;min-width:240px;font-size:13px}
   select{background:var(--card);border:1px solid var(--line);color:var(--fg);
     padding:6px 8px;border-radius:6px;font-size:13px}
-  .wrap{padding:14px 18px;max-width:1000px}
+  /* Two columns: the offer list, and a panel that stays put while you scroll it past.
+     Same shape as the history page's detail column. */
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px;
+    align-items:start;padding:14px 18px;max-width:1440px}
+  .main{min-width:0}
+  /* 126px = a clear gap under the sticky page header (company headers hang at 96px).
+     The gutter is reserved and the rows stop short of it: Chrome's scrollbar fattens on
+     hover, and it was landing on top of the row's own x button. */
+  #side{position:sticky;top:126px;max-height:calc(100vh - 146px);overflow:auto;
+    scrollbar-gutter:stable;
+    border-left:1px solid var(--line);padding-left:16px;padding-right:10px;min-width:0}
+  /* Below ~1100px the list column gets too narrow to read; drop the panel underneath. */
+  @media (max-width:1100px){
+    .wrap{grid-template-columns:minmax(0,1fr)}
+    #side{position:static;border-left:0;border-top:1px solid var(--line);
+      padding:12px 0 0;max-height:none}
+  }
+  .sidetabs{display:flex;gap:6px;margin-bottom:10px}
+  .sidetab{flex:1;background:var(--card);border:1px solid var(--line);color:var(--dim);
+    border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;white-space:nowrap}
+  .sidetab:hover{border-color:var(--accent)}
+  .sidetab.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .qrow{display:flex;gap:7px;align-items:baseline;padding:5px 0;
+    border-bottom:1px solid var(--line);font-size:12px}
+  .qrow .qsc{font-weight:700;font-variant-numeric:tabular-nums;min-width:24px;text-align:right}
+  /* Drag starts here and nowhere else -- the row's own text is a link and its note is a
+     textarea, and both need the pointer for their own job. */
+  .qrow .qgrip{cursor:grab;color:var(--dim);opacity:.3;font-size:13px;line-height:1;
+    padding:0 1px;user-select:none;flex:0 0 auto}
+  .qrow:hover .qgrip{opacity:.85}
+  .qrow.drag{opacity:.35}
+  /* The whole text block is the link to the offer -- the row is the target, not an icon. */
+  .qrow .qtx{flex:1;min-width:0;display:block;color:inherit;text-decoration:none}
+  .qrow a.qtx:hover .qti{color:var(--accent)}
+  .qrow .qti{font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .qrow .qco{color:var(--dim);display:block;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  /* Same 🔎 the offer row's pick button uses for "queued AND on the dig list". */
+  .qrow .qdig{flex:0 0 auto;font-size:10.5px;line-height:1;opacity:.8}
+  .qrow .qx{background:none;border:0;color:var(--dim);cursor:pointer;font-size:14px;
+    line-height:1;padding:0 2px}
+  .qrow .qx:hover{color:var(--bad)}
+  /* Past the nightly cap: queued, but not running tonight. */
+  .qrow.later{opacity:.5}
+  .qrow.wrap2{flex-wrap:wrap}
+  .qempty{color:var(--dim);font-size:12px;padding:14px 0}
+  .qdiv{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;
+    margin:9px 0 2px;border-top:1px dashed var(--line);padding-top:6px}
+  .qdiv.first{border-top:0;margin-top:0;padding-top:0}
+  .qnote{background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:5px;
+    padding:4px 6px;font-size:11.5px;font-family:inherit;width:100%;margin-top:3px;
+    line-height:1.35;resize:vertical}
+  .sidefoot{font-size:11px;color:var(--dim);margin-top:12px;
+    border-top:1px solid var(--line);padding-top:9px}
+  /* A command is a block you can read and select, not an inline blob broken mid-flag. */
+  .sidefoot code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;
+    background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 6px;
+    color:var(--fg);display:block;white-space:pre-wrap;line-height:1.5}
+  .sidefoot .cmd{margin-top:8px}
+  .sidefoot .cmdnote{display:block;margin-top:2px;font-size:10.5px;opacity:.85}
+  .sidefoot .lb{color:var(--fg);display:block;margin-top:7px}
+  .sidefoot button{margin-top:8px}
   /* the group itself is styled in offer.css; here it hangs under the sticky page header */
   .co-head{position:sticky;top:96px}
   /* category quick-filter chips: a few big categories + a "rest" catch-all */
@@ -47,7 +109,8 @@
 <header>
   <h1>Apply cockpit</h1>
   <div class="sub">Offers grouped by company. Click a row to expand what happened. A company with
-    many openings means: review and pick the best 1–2, don't spray CVs.</div>
+    many openings means: review and pick the best 1–2, don't spray CVs. The pick button queues
+    an offer straight away — the queue is on the right and the runner drains it at 23:00.</div>
   <div class="bar">
     <input type="search" id="q" placeholder="filter title / company / skill…">
     <select id="cat"><option value="">all categories</option></select>
@@ -74,21 +137,30 @@
     <span style="margin-left:auto"></span>
     <a class="tool" id="harvestlink" href="/harvest" title="Re-collect the live feed and mark vanished offers expired.">↻ Harvest</a>
     <a class="tool" id="historylink" href="/history" title="Every offer applied to and the details of each application.">📋 History</a>
-    <button class="tool primary" id="write" disabled>Write worklist (0)</button>
-    <button class="tool" id="clearsel">clear</button>
   </div>
 </header>
 <div class="wrap">
-  <div class="stats" id="stats"></div>
-  <div class="catbar" id="catbar"></div>
-  <div class="bkbar" id="bkbar"></div>
-  <div class="bklegend" id="bklegend"></div>
-  <div id="list"></div>
+  <div class="main">
+    <div class="stats" id="stats"></div>
+    <div class="catbar" id="catbar"></div>
+    <div class="bkbar" id="bkbar"></div>
+    <div class="bklegend" id="bklegend"></div>
+    <div id="list"></div>
+  </div>
+  <div id="side">
+    <div class="sidetabs">
+      <button class="sidetab on" id="tab-queue" data-t="queue">Queue (0)</button>
+      <button class="sidetab" id="tab-dig" data-t="dig">Dig deeper (0)</button>
+    </div>
+    <div id="sidebody"></div>
+  </div>
 </div>
 <script>
 let OFFERS=[];                    // every offer, live and expired
 let POOL=[];                      // OFFERS minus what the expired selector hides
-const SEL=new Set();              // urls picked for the worklist
+let QUEUE={items:[],count:0,cap:10,last_batch:null};   // runner/data/worklist.json, as served
+let DIG={items:[],count:0};       // finder/data/dig_deeper.json, as served
+let SIDETAB='queue';              // which panel tab is showing
 const COEXP=new Set();            // company names whose group is expanded
 const BIG=5;                      // a company with >= this many shown offers gets a warning
 const BK=["KILL","VETO","NEG","WEAK","PLAUS","STRONG"];   // bucket index 0..5
@@ -105,6 +177,7 @@ async function load(){
   OFFERS=d.offers;
   rebuildCats();
   render();
+  loadSide();
 }
 
 // Category counts are computed over POOL = everything the expired selector lets through, so
@@ -274,16 +347,154 @@ function render(){
         ${big?`<span class="co-warn">many openings — pick the best 1–2</span>`:''}
         ${(collapsible&&!expanded)?`<span class="more">+${hidden} more ▾</span>`:''}
       </div>
-      <ul class="offers">${shown.map(o=>offerLi(o,SEL)).join('')}</ul>
+      <ul class="offers">${shown.map(o=>offerLi(o)).join('')}</ul>
     </div>`;
   }).join('');
-  updateWriteBtn();
 }
 
-function updateWriteBtn(){
-  const b=document.getElementById('write');
-  b.textContent=`Write worklist (${SEL.size})`;
-  b.disabled=SEL.size===0;
+// ---- the right-hand panel: the apply queue and the dig-deeper list ----
+// Both are files on the server, so the panel always re-fetches rather than mirroring the
+// page's offer objects — the nightly runner deletes from the queue while this tab is open.
+
+async function loadSide(){
+  const [q,d]=await Promise.all([fetch('/api/queue').then(r=>r.json()),
+                                 fetch('/api/dig').then(r=>r.json())]);
+  QUEUE=q; DIG=d;
+  renderSide();
+}
+
+// The row reads title-first because that is what you are picking between, and the whole text
+// block is the link: you open an offer by clicking the row, not a small arrow beside it.
+const qtitle=(c,t,u)=>{
+  const body=`<span class="qti">${esc(t||'')}</span><span class="qco">${esc(c||'')}</span>`;
+  return u?`<a class="qtx" href="${attr(u)}" target="_blank" rel="noopener"`
+          +` title="${attr(t||'')} — open the offer">${body}</a>`
+         :`<span class="qtx" title="${attr(t||'')}">${body}</span>`;
+};
+const qscore=n=>`<span class="qsc">${n==null?'':(n>0?'+':'')+n}</span>`;
+const QGRIP=`<span class="qgrip" title="drag to reorder">⠿</span>`;
+
+function renderQueue(){
+  const cap=QUEUE.cap||10;
+  // Both lists are already in hand, so the queue row can say which of its offers you also
+  // meant to chase by hand -- the two lists are filed under the same canonical offer url.
+  const dug=new Set(DIG.items.map(d=>d.url));
+  if(!QUEUE.items.length)
+    return `<div class="qempty">Queue is empty — click an offer's ☐ to queue it.</div>`
+      +queueFoot();
+  // Queue order IS run order, so the divider answers the only question the list raises:
+  // which of these actually run tonight, and which wait for tomorrow.
+  const over=QUEUE.items.length>cap;
+  return QUEUE.items.map((e,i)=>{
+    let div='';
+    if(over && i===0)   div=`<div class="qdiv first">tonight's ${cap}</div>`;
+    if(over && i===cap) div=`<div class="qdiv">waiting for the next night</div>`;
+    return div+`<div class="qrow${i>=cap?' later':''}" draggable="true" data-u="${attr(e.url)}">
+      ${QGRIP}${qscore(e.score)}${qtitle(e.company,e.title,e.url)}
+      ${dug.has(e.url)?`<span class="qdig" title="also on the dig-deeper list">🔎</span>`:''}
+      <button class="qx" data-q="${attr(e.url)}" title="drop from the queue">×</button>
+    </div>`;
+  }).join('')+queueFoot();
+}
+
+function queueFoot(){
+  const b=QUEUE.last_batch;
+  const cap=QUEUE.cap||10;
+  let last='<span class="lb">last batch: never run</span>';
+  if(b){
+    const bits=[`${b.attempted||0} attempted`];
+    if(b.applied!=null) bits.push(`${b.applied} applied`);
+    if(b.blocked)       bits.push(`${b.blocked} blocked`);
+    if(b.cost_usd)      bits.push('$'+(+b.cost_usd).toFixed(2));
+    last=`<span class="lb">last batch: ${esc((b.finished||b.started||'').replace('T',' ').slice(0,16))}`
+      +` · ${esc(bits.join(' · '))}`
+      +`${b.aborted?` · <span class="neg">stopped: ${esc(b.aborted)}</span>`:''}</span>`;
+  }
+  return `<div class="sidefoot">
+    <div>nightly 23:00 · the top ${cap} run, in this order — drag ⠿ to change it · an offer
+      leaves the queue once it is logged</div>
+    <div class="cmd"><code>python runner\\run_batch.py --mode auto --limit ${cap}</code>
+      <span class="cmdnote">what the nightly task runs: fills and submits</span></div>
+    <div class="cmd"><code>python runner\\run_batch.py --mode review --limit ${cap}</code>
+      <span class="cmdnote">fills everything, stops before the final Submit</span></div>
+    ${last}
+  </div>`;
+}
+
+function renderDig(){
+  if(!DIG.items.length)
+    return `<div class="qempty">Nothing here yet — click a queued offer's ✓ to add it.</div>`;
+  return DIG.items.map(d=>`<div class="qrow wrap2" data-u="${attr(d.url)}">
+      ${qscore(d.score)}${qtitle(d.company,d.title,d.url)}
+      <button class="qx" data-d="${attr(d.url)}" title="drop from the dig list">×</button>
+      <textarea class="qnote" data-n="${attr(d.url)}" rows="2"
+             placeholder="what to write to them: the angle, who to reach, what to ask…"
+      >${esc(d.note||'')}</textarea>
+    </div>`).join('')
+    +`<div class="sidefoot">Still queued for the bot as well — this is the list you work by
+      hand, top down. It is served in the queue's order, so reorder it there.
+      <button class="tool" id="digcopy">Copy as markdown</button></div>`;
+}
+
+function renderSide(){
+  document.getElementById('tab-queue').textContent=`Queue (${QUEUE.count})`;
+  document.getElementById('tab-dig').textContent=`Dig deeper (${DIG.count})`;
+  for(const t of document.querySelectorAll('.sidetab'))
+    t.classList.toggle('on', t.dataset.t===SIDETAB);
+  document.getElementById('sidebody').innerHTML=
+    SIDETAB==='queue'?renderQueue():renderDig();
+}
+
+// ---- dragging a panel row ----
+// Queue order is run order -- for the bot, and for the dig list, which is served in it -- so
+// the drag has to end in a file write, not a DOM tweak. The row
+// is moved live while you drag; on drop the new order is POSTed and the panel is redrawn from
+// what came back -- which is also what puts the "tonight's N" divider back in the right place.
+let DRAGROW=null;
+
+function panelRows(){ return [...document.querySelectorAll('#sidebody .qrow')]; }
+
+document.getElementById('sidebody').addEventListener('mousedown',e=>{
+  // Only the grip starts a drag: the row's text is a link and the note is a textarea.
+  const row=e.target.closest('.qrow');
+  if(row) row.draggable=!!e.target.closest('.qgrip');
+});
+
+document.getElementById('sidebody').addEventListener('dragstart',e=>{
+  const row=e.target.closest('.qrow'); if(!row||!row.draggable){ e.preventDefault(); return; }
+  DRAGROW=row; row.classList.add('drag');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain','');   // Firefox drags nothing without a payload
+});
+
+document.getElementById('sidebody').addEventListener('dragover',e=>{
+  if(!DRAGROW) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='move';
+  const over=e.target.closest('.qrow');
+  if(!over||over===DRAGROW) return;
+  const r=over.getBoundingClientRect();
+  const after=e.clientY > r.top + r.height/2;
+  over.parentNode.insertBefore(DRAGROW, after?over.nextSibling:over);
+});
+
+document.getElementById('sidebody').addEventListener('drop',e=>{ if(DRAGROW) e.preventDefault(); });
+
+document.getElementById('sidebody').addEventListener('dragend',async ()=>{
+  const row=DRAGROW; if(!row) return;
+  DRAGROW=null; row.classList.remove('drag'); row.draggable=false;
+  const urls=panelRows().map(r=>r.dataset.u);
+  const r=await fetch('/api/queue/reorder',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({urls})});
+  QUEUE=await r.json();
+  DIG=await fetch('/api/dig').then(x=>x.json());   // served in queue order: re-sorted by this
+  renderSide();
+});
+
+// A panel action changes the same two files the rows read their state from, so both are
+// redrawn: the offer list to un-tick its button, the panel to drop the row.
+async function sideRefresh(){
+  const r=await fetch('/api/offers'); OFFERS=(await r.json()).offers;
+  render(); await loadSide();
 }
 
 // ---- events (delegated; the list is rebuilt on every render) ----
@@ -314,23 +525,36 @@ document.getElementById('list').addEventListener('click',e=>{
 wireOfferList(document.getElementById('list'), {
   find:u=>OFFERS.find(x=>x.url===u),
   refresh:render,
-  sel:SEL,
-  onSel:updateWriteBtn,
+  onPick:loadSide,
 });
 
-document.getElementById('write').addEventListener('click',async()=>{
-  const urls=[...SEL];
-  const r=await fetch('/api/worklist',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({urls})});
+// ---- panel events ----
+document.getElementById('side').addEventListener('click',async e=>{
+  const tab=e.target.closest('.sidetab');
+  if(tab){ SIDETAB=tab.dataset.t; renderSide(); return; }
+  const post=(path,u)=>fetch(path,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({url:u})});
+  const x=e.target.closest('.qx');
+  if(x){
+    // The two lists are dropped separately: unqueueing an offer must not throw away the
+    // contact you spent ten minutes digging up, and vice versa.
+    if(x.dataset.q!=null) await post('/api/queue/remove', x.dataset.q);
+    else                  await post('/api/dig/remove',   x.dataset.d);
+    await sideRefresh(); return;
+  }
+  if(e.target.id==='digcopy'){ await copyFlash(e.target, digMarkdown(DIG.items)); return; }
+});
+
+// Blur, not input: one write per note you finish typing, not one per keystroke. Capturing,
+// because blur does not bubble.
+document.getElementById('side').addEventListener('blur',async e=>{
+  const n=e.target.closest('.qnote'); if(!n) return;
+  const r=await fetch('/api/dig/note',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({url:n.dataset.n, note:n.value})});
   const d=await r.json();
-  const b=document.getElementById('write');
-  b.textContent=`✓ wrote ${d.written} → runner/data/worklist.json`;
-  setTimeout(updateWriteBtn,2500);
-});
-
-document.getElementById('clearsel').addEventListener('click',()=>{
-  SEL.clear(); render();
-});
+  const it=DIG.items.find(x=>x.url===n.dataset.n);
+  if(it && d.note!=null) it.note=d.note;
+}, true);
 
 load();
 </script>

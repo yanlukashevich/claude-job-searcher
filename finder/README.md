@@ -10,9 +10,11 @@ Cowork. Plain terminal in the project root.
 1. harvest.py          CODE  justjoin API   -> data/offers_db.jsonl (facts; adds new, archives gone)
    harvest_pracuj.py   CODE  pracuj listing -> the same file, same row shape
 2. app.py       CODE  serves the cockpit: joins offers_db + bot log + your manual
-                      marks, groups by company, writes runner/data/worklist.json
-3. (you) review the cockpit, pick 1-2 per company, hit "Write worklist"
-4. Cowork applier reads runner/data/worklist.json, appends to applications_log.jsonl
+                      marks + the queue, groups by company
+3. (you) review the cockpit, click 1-2 per company into the queue — no "write" step,
+                      each click is a server write to runner/data/worklist.json
+4. runner/run_batch.py drains that queue at 23:00, appends to applications_log.jsonl,
+                      and removes each offer once it has a log line
 ```
 
 Scoring is a **keyword classifier**, not judgment: code decides facts (is a keyword
@@ -39,8 +41,60 @@ The **cockpit** (`app.py` + `page.html`) is the one place you look. Offers are g
 company; a company with many openings is flagged so you review and pick the best 1–2 instead
 of spraying CVs. Click any row to expand what happened — the CV used, the free-text the bot
 entered, the outcome, the full notes. Each offer carries a live status: **bot** (from the
-append-only log) or **applied by me** (your manual toggle). Tick offers → **Write worklist**
-drops them straight into `runner/data/worklist.json` for the Cowork applier. No file downloads.
+append-only log) or **applied by me** (your manual toggle). No file downloads.
+
+## Picking: one button, three states, no "write" step
+
+```
+(empty) --click--> queued --click--> queued + dig deeper --click--> (empty)
+   ☐                 ✓                      ✓🔎                        ☐
+```
+
+Every click is a POST that lands on disk before the row redraws, so picks survive a refresh, a
+restart and a week. **Queued** appends to `runner/data/worklist.json` — the apply queue the
+nightly runner drains. **Dig deeper** additionally files the offer in `data/dig_deeper.json`,
+the list you work by hand (find the company's email, write to a human); it stays queued for the
+bot as well. State is read back off both files on every request, so a second tab, a refresh, or
+the runner deleting from the queue overnight all agree.
+
+The state is joined on **every** URL an offer has ever had, the same as applied-status — so a
+job posted on both portals (`jp`) queues once, and shows as queued whichever portal link the row
+happens to display.
+
+Applied offers show no pick button at all.
+
+## The right-hand panel
+
+The empty space right of the list is now a sticky two-tab panel:
+
+- **Queue (N)** — the whole queue in run order, with a divider marking the nightly `--limit`;
+  everything below it is dimmed and waits for the next night. Each row is the offer's link
+  (title first, company under it) and carries a `×` to unqueue. The footer carries the
+  schedule, both ways to run it by hand, and a **last batch** line read from
+  `runner/data/batch_log.jsonl` — which is how you tell in the morning whether last night ran.
+  The two commands are one run spelled twice: `--mode auto` (what the nightly task does:
+  fills and submits) and `--mode review` (fills everything, stops before the final Submit).
+- **Dig deeper (M)** — the same rows plus an editable `note` — your draft of the outreach
+  (the angle, who to reach, what to ask), saved on blur — and **Copy as markdown**, which
+  produces `- [ ] Company — Title — url — note` lines to paste anywhere.
+
+The **queue** is drag-sorted by the `⠿` grip on the left of a row (only the grip starts a drag;
+the rest of the row is a link). A drop POSTs the new order to `/api/queue/reorder`, which
+rewrites `worklist.json` in that order — so a drag decides what tonight's `--limit` reaches.
+It applies the order to the file on disk, never to the copy the page was holding: the runner
+deletes from the queue while you drag, and what it dropped stays dropped.
+
+The **dig list has no drag of its own**: `/api/dig` serves it in queue order, so both tabs read
+the same top-down and one drag decides both. Dig entries the runner has already drained off
+the queue keep their file order, behind the queued ones.
+
+The panel re-fetches after every pick and on load, so a queue the runner changed mid-evening
+never goes stale.
+
+There is no automatic picker any more. `auto_worklist.py` chose five offers every hour and
+rewrote the worklist; a queue you build by hand over days cannot survive that, so it and its
+Windows task are gone. Deciding which offers to apply to is the one step that stays human —
+the only automation left is the 23:00 drain.
 
 Every expanded offer also carries a **Copy prompt** button: a ready-to-paste, single-offer
 Cowork prompt (read `applier_instructions.md` + `profile.md`, run mode `review`, this offer's
@@ -53,18 +107,18 @@ feed is stamped `archived_at` on *that portal's* source entry, and only counts a
 every portal carrying it has dropped it; one that reappears has the stamp cleared
 (`revived_at` records when). The subpage shows tiles (`+new`, expired, revived, in db, live,
 archived-total), a table of recent runs, and everything that came in on the last run — the same
-expandable row as the cockpit (tick to pick, click to open, mark applied, adjust the score, copy
-the apply prompt), rendered by `static/offer.js` + `static/offer.css`, which both pages link so
-the row cannot drift between them.
+expandable row as the cockpit (click the ☐ to queue, click to open, mark applied, adjust the
+score, copy the apply prompt), rendered by `static/offer.js` + `static/offer.css`, which both
+pages link so the row cannot drift between them.
 
 Those arrivals are **grouped by company**, the cockpit's grouping turned around: one block per
 company the run touched, showing *only* its new offers. The header answers what a new posting
 actually raises — `+N new`, how many offers the company has live, and `✓ applied N` if you have
 already been in touch. Click it to unfold the company's other offers (score-sorted, each with
 its own applied status); expired ones are left out unless you applied to them, since a dead link
-you already answered is the part of the history that matters. The page carries the cockpit's
-**Write worklist** button too, so a run's pick goes straight to `runner/data/worklist.json` without a
-detour; it *replaces* the file, same as the cockpit's, and a new harvest clears the ticks.
+you already answered is the part of the history that matters. Picking here posts to the same
+queue as the cockpit's, so a run's picks go in without a detour — the header shows how many are
+queued; the panel itself lives on the cockpit.
 `GET /api/harvest` returns only the run stats — the offers come from `/api/offers`, whose
 `is_new` flag is the single definition of "came in on the last run".
 Back in the cockpit, freshly-harvested offers get a **new** stats tile and a `NEW` badge. This
@@ -81,13 +135,20 @@ expired` selector in the header switches them in; shown ones are dimmed, dashed 
 selector also drives the category counts (chips and dropdown), so the numbers always describe
 the offers you can actually see.
 
-Three files, three owners, joined by offer URL:
+Five files, joined by offer URL:
 
 | file | who writes it | how |
 |---|---|---|
 | `data/offers_db.jsonl` | `harvest.py` / Re-harvest | atomic rewrite (temp + swap): adds new rows, stamps `archived_at` on vanished ones |
 | `../runner/data/applications_log.jsonl` | `runner/run_batch.py` | append-only (crash-safe) |
 | `data/manual_applied.json` | you, via the cockpit | mutable dict, toggle on/off |
+| `../runner/data/worklist.json` | **both** the cockpit and the runner | read-modify-write, `.tmp` + `os.replace` on each side |
+| `data/dig_deeper.json` | you, via the cockpit | mutable dict, like `manual_applied.json` |
+
+The queue is the only file with two writers: you add to it while the runner deletes from it. So
+neither side ever writes a list it was holding — each re-reads, changes one entry and swaps the
+file in atomically. A whole-file overwrite from a stale copy would silently erase the other
+side's work.
 
 **Superseded:** `prototype/browse.py` (static triage page, applied-state in localStorage) and
 the whole `legacy/` PowerShell pipeline (`harvest_offers.ps1` + `build_worklist.ps1` +
@@ -108,6 +169,9 @@ Tuning loop for scoring: edit `prototype\keywords.py` → restart `app.py` → r
 | `data/offers_db.jsonl` | Every offer ever seen; one line per unique job. Rows are never deleted — gone-from-the-feed ones carry `archived_at`. |
 | `data/company_aliases.json` | Hand-written company spellings → the name to use. Merges *and* renames; see Identity & dedup. |
 | `prototype/` | **The scorer + review page.** `keywords.py` is the file you tune. |
+| `data/dig_deeper.json` | The outreach list: `{url: {company, title, score, added_at, note}}`. Not in `src/` — the applier must never pay tokens for it. |
+| `send_outreach.py` | Sends an `outreach_*.md` file's emails over Gmail SMTP with the CV attached from disk (the Gmail connector can't attach a real file). Dry run unless `--send`; needs `GMAIL_APP_PASSWORD`. An unchecked `- [ ]` naming a company holds that email back. |
+| `data/outreach_sent.jsonl` | One line per email `send_outreach.py` sent; a (file, recipient) pair in it is never sent twice. |
 
 ## Two portals, one database
 

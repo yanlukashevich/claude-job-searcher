@@ -10,7 +10,14 @@ li.of{border:1px solid var(--line);border-left-width:4px;border-radius:7px;
 .lb0{border-left-color:var(--b1)}.lb1{border-left-color:var(--b2)}.lb2{border-left-color:var(--b3)}
 .lb3{border-left-color:var(--b4)}.lb4{border-left-color:var(--b5)}.lb5{border-left-color:var(--b6)}
 .row{display:flex;gap:9px;align-items:baseline;padding:8px 11px;cursor:pointer;flex-wrap:wrap}
-.row input[type=checkbox]{cursor:pointer;margin:0;align-self:center}
+/* the tri-state pick button: empty -> queued -> queued + dig deeper -> empty.
+   Fixed width, so the three glyphs never shift the row's other columns as you click. */
+.pick{background:var(--card);border:1px solid var(--line);color:var(--dim);border-radius:6px;
+  padding:1px 0;width:38px;text-align:center;font-size:13px;line-height:1.5;cursor:pointer;
+  align-self:center;flex:none}
+.pick:hover{border-color:var(--accent);color:var(--fg)}
+.pick.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.pick.both{background:var(--warn);border-color:var(--warn);color:#111;font-weight:700}
 .score{font-weight:700;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
 .ttl{font-weight:600}
 a.ttl{color:inherit;text-decoration:none;border-bottom:1px dotted var(--dim)}

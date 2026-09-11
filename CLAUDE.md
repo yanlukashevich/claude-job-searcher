@@ -51,6 +51,8 @@ playbook free of rules about them. Code writes and reads both; the applier is ha
 offer in the task prompt and returns a JSON object. When `worklist.json` sat in the applier's
 cwd it had to be told "never read it" — and a log in reach still pulled appliers into checking
 for duplicates themselves. Out of reach, neither line has to be written or paid for per offer.
+`finder/data/dig_deeper.json` is out of reach for the same reason: it is your outreach list,
+and nothing the applier does depends on it.
 
 ## The two-brain split (do not merge these)
 
@@ -64,12 +66,13 @@ needing an absent hard fact is a *block*, not a guess.
 
 ## Running it
 
-Two steps. Offer selection is a human review in the finder; applying is the agent.
+**Pick continuously, the runner drains nightly.** Offer selection is a human review in the
+finder; applying is the agent, on a schedule.
 
 ```powershell
 # 1. FINDER - harvest, score, pick. See finder/README.md.
 python finder\app.py                 # open http://127.0.0.1:9000, hit "↻ Harvest" (both portals),
-                                     # review, tick offers, "Write worklist"
+                                     # review, click offers into the queue on the right
 ```
 
 Both portals land in one `offers_db.jsonl`; the same job on both collapses to one row carrying
@@ -77,14 +80,24 @@ both links, marked `jp` in the cockpit. The CLI harvesters (`harvest.py`, `harve
 re-pull a single portal when one needs debugging.
 
 The cockpit shows each offer's **applied** status (bot log + your manual marks), so you pick the
-unapplied ones; **Write worklist** drops them into `runner\data\worklist.json`. There is
-no daily cap — how many you tick is the only throttle.
+unapplied ones. The pick button cycles through three states, each click a server write:
+
+```
+(empty) --> queued --> queued + dig deeper --> (empty)
+```
+
+**Queued** = written to `runner\data\worklist.json` immediately; it survives refreshes and
+outlives the session, and the right-hand panel shows the whole queue with a divider marking
+tonight's `--limit`. **Dig deeper** = also filed in `finder/data/dig_deeper.json`, the list you
+work by hand (find the company's email, write to a human) — additive, the bot still applies
+through the portal. The throttle is the nightly `-Count`, not how many you click.
 
 ```powershell
 # 2. RUNNER - one applier per offer, sequentially. See runner/README.md.
-python runner\run_batch.py --dry-run          # print the queue and the exact launch line
-python runner\run_batch.py --mode review      # fill everything, stop before Submit (default)
-python runner\run_batch.py --mode auto
+powershell -File runner\register_nightly.ps1 -Count 3   # 23:00 daily, --mode auto. ONCE.
+python runner\run_batch.py --dry-run                    # print the queue and the launch line
+python runner\run_batch.py --mode review                # fill everything, stop before Submit
+python runner\run_batch.py --mode auto --limit 10       # what the nightly task runs
 ```
 
 `run_batch.py` reads `runner\data\worklist.json` (never re-filters it), brings up the
@@ -94,7 +107,21 @@ and **returns** a JSON object matching `runner/log_line.schema.json`; the runner
 time and writes `runner\data\applications_log.jsonl` and, for a blocked offer,
 `runner\data\todo_manual.md`.
 
-- **Sequential, never parallel** — two appliers would fight over the same Chrome tab.
+Then it **removes the offer from the queue** — tied to the log line, not to success, because
+`blocked` and `filled_review` are attempts too and must not be repeated (`--keep` opts out).
+Offers the batch never reached stay queued, which is the whole design of the **usage-limit**
+rule: on a quota wall the batch stops without writing a log line, so nothing is marked
+attempted, nothing is removed, and `main()` exits **2** so Task Scheduler records the failed
+night. Each batch appends one summary line to `runner\data\batch_log.jsonl`, which is what the
+cockpit panel shows as "last batch".
+
+- **Sequential, never parallel** — two appliers would fight over the same Chrome tab. The
+  scheduled task is registered `-MultipleInstances IgnoreNew` for the same reason.
+- The nightly task runs **in your session**, so the machine must be awake and logged on at
+  23:00; that is also why Windows never stores a password.
+- The hourly machine-picker (`finder/auto_worklist.py` + its Windows task) is **deleted**:
+  it rewrote `worklist.json` every hour at :40, which a hand-picked persistent queue cannot
+  survive. Picking is a human act now, and the only automation is the 23:00 drain.
 - The browser has a **second** permission gate no CLI flag reaches: the extension asks before
   touching a domain it has not seen, which is every employer ATS. `run_batch.py` starts
   `runner\permission_autoclick.py` to click that card and kills it when the batch ends
@@ -107,15 +134,18 @@ time and writes `runner\data\applications_log.jsonl` and, for a blocked offer,
 
 ```
 finder/harvest.py + harvest_pracuj.py  →  finder/data/offers_db.jsonl   (every offer ever seen)
-   → finder cockpit (app.py)  CODE: score + join applied-status; you pick
-      → runner/data/worklist.json
-         → runner/run_batch.py  (trusts worklist, never re-filters)
+   → finder cockpit (app.py)  CODE: score + join applied-status; you click
+      → runner/data/worklist.json      the QUEUE — persistent, added to one click at a time
+      → finder/data/dig_deeper.json    the outreach list (second click; you work it by hand)
+         → runner/run_batch.py  (trusts the queue, never re-filters), 23:00 via runner/nightly.ps1
             → one fresh `claude -p` per offer  (applier_instructions.md + profile.md)
                → applies via Claude-in-Chrome, attaches the CV via mcp_webfile
                → returns one JSON object  (runner/log_line.schema.json)
                   → runner/data/applications_log.jsonl  (append-only audit trail)
                   → runner/data/todo_manual.md          (blocked offers only)
                   → runner/data/run_log.jsonl           (per-launch diagnostics)
+                  → then the offer is removed from worklist.json
+            → runner/data/batch_log.jsonl              (one line per batch)
 ```
 
 `applications_log.jsonl` is the anti-double-apply record: the cockpit joins it back onto the

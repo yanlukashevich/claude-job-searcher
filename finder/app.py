@@ -1,27 +1,33 @@
 """One page, one source of truth. The apply cockpit.
 
-Serves offers.html and a tiny JSON API that JOINS three files by offer URL:
+Serves offers.html and a tiny JSON API that JOINS four files by offer URL:
   - finder/data/offers_db.jsonl   the offers (harvest.py writes it; rows are never deleted,
                                   vanished ones are stamped archived_at)
   - runner/data/applications_log.jsonl   what the BOT did (run_batch.py appends; append-only)
   - finder/data/manual_applied.json   what YOU did by hand (mutable, toggle-able)
+  - runner/data/worklist.json     the apply QUEUE, which the nightly runner drains
 
 The two write patterns are different on purpose. Automated runs append to the JSONL log
 (crash-safe, no read-modify-write). Your manual marks are one interactive click, so they live
 in a plain mutable dict you can toggle on and off -- you cannot un-append a JSONL line.
+
+The queue is a third pattern again: run_batch.py deletes from the same file while you are
+clicking in it, so every write here is read-modify-write onto a temp file plus os.replace.
+A whole-file overwrite from a stale in-memory copy would erase whatever the other side did.
 
 Run:
   python finder/app.py            # http://127.0.0.1:9000
 """
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -40,8 +46,16 @@ import harvest_pracuj                             # noqa: E402  pracuj.pl
 OFFERS_DB = HERE / "data" / "offers_db.jsonl"
 MANUAL = HERE / "data" / "manual_applied.json"
 MANUAL_SCORES = HERE / "data" / "manual_scores.json"   # url -> {score, reason, at} (your overrides)
+# The outreach list: offers you also want to chase by hand (find the company's email, write to
+# a human). Deliberately in finder/data/, not src/ -- the applier must never pay tokens for it.
+DIG = HERE / "data" / "dig_deeper.json"
 LOG = ROOT / "runner" / "data" / "applications_log.jsonl"
 WORKLIST = ROOT / "runner" / "data" / "worklist.json"
+BATCH_LOG = ROOT / "runner" / "data" / "batch_log.jsonl"   # one line per nightly batch
+
+# What the nightly task takes off the queue in one go. Shown in the panel so you can see which
+# picks run tonight and which wait; register_nightly.ps1 -Count is the value that actually runs.
+NIGHTLY_COUNT = 10
 PAGE = HERE / "page.html"
 HARVEST_PAGE = HERE / "harvest.html"
 HISTORY_PAGE = HERE / "history.html"
@@ -208,6 +222,67 @@ def _save_manual_scores(d):
     MANUAL_SCORES.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _write_json(path, obj):
+    """Replace a JSON file in one step: write a sibling .tmp, then os.replace it over the
+    target. os.replace is atomic on Windows too, so a reader -- run_batch.py draining the
+    queue while you click -- never sees a half-written file, and a crash mid-write leaves the
+    old one intact. run_batch.py writes worklist.json the same way, for the same reason."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _queue():
+    """The apply queue as it is on disk RIGHT NOW. Always re-read: run_batch.py removes each
+    offer the moment it has a log line, so an in-memory copy goes stale within a minute."""
+    if not WORKLIST.exists():
+        return []
+    txt = WORKLIST.read_text(encoding="utf-8").strip()
+    return json.loads(txt) if txt else []
+
+
+def _save_queue(items):
+    _write_json(WORKLIST, items)
+
+
+def _worklist_entry(offer):
+    """One queue row, in the exact shape runner/run_batch.py consumes. The single definition:
+    the cockpit's clicks and the harvest page's bulk add both come through here, so a row can
+    never drift from what the runner expects."""
+    return {
+        "url": offer["url"],
+        "title": offer["title"],
+        "company": offer["company"],
+        "location": ", ".join(offer["cities"]),
+        "stack": offer["stack"],
+        "apply_method": offer.get("apply_method", ""),
+        "apply_url": offer.get("apply_url", ""),
+        "status": "pending",
+        "added_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _dig():
+    """url -> {company, title, url, apply_url, cities, score, added_at, note}. The offers you
+    also want to chase by hand. Same mutable-dict pattern as manual_applied.json: you add and
+    remove these by clicking, so nothing here is append-only."""
+    if not DIG.exists():
+        return {}
+    return json.loads(DIG.read_text(encoding="utf-8"))
+
+
+def _save_dig(d):
+    _write_json(DIG, d)
+
+
+def _last_batch():
+    """The last line of runner/data/batch_log.jsonl -- what the nightly run did, or None if it
+    has never run. Read on every /api/queue so the panel says whether last night happened."""
+    rows = _read_jsonl(BATCH_LOG)
+    return rows[-1] if rows else None
+
+
 def _last_harvest():
     if LAST_HARVEST.exists():
         return json.loads(LAST_HARVEST.read_text(encoding="utf-8"))
@@ -218,10 +293,12 @@ def _last_harvest():
 
 def _enriched_offers():
     """The scored offers with everything the cockpit row needs joined on: manual score
-    overrides, bot log lines, manual marks, and the is_new flag."""
+    overrides, bot log lines, manual marks, queue + dig-deeper state, and the is_new flag."""
     bot = _bot_applications()
     manual = _manual()
     scores = _manual_scores()
+    queued = {e.get("url") for e in _queue()}
+    dig = _dig()
     out = []
     for o in _scored_offers():
         row = dict(o)
@@ -245,6 +322,11 @@ def _enriched_offers():
             row["applied_by"] = "manual"
         else:
             row["applied_by"] = None
+        # Queued/dig state joins on ALL of the offer's links, exactly like applied-status: a
+        # job posted on both portals is one offer, and it must not queue twice or read as
+        # unqueued when the row happens to show the other portal's link. See _urls_of.
+        row["queued"] = any(u in queued for u in o["urls"])
+        row["dig"] = any(u in dig for u in o["urls"])
         out.append(row)
     lh = _last_harvest()
     new_at = lh["at"] if lh else None
@@ -395,47 +477,171 @@ def api_score(body: ScoreBody):
     return {"url": body.url, **entry}
 
 
-class WorklistBody(BaseModel):
+# ---- the apply queue -----------------------------------------------------------------------
+#
+# Picking is no longer a one-shot act. A click puts the offer in runner/data/worklist.json
+# immediately and it stays there over refreshes, restarts and days, until the nightly runner
+# applies to it and deletes it. Everything below therefore reads the file, changes one entry
+# and replaces it -- never writes a list it was holding, because run_batch.py is deleting
+# from the same file while you click.
+
+class UrlBody(BaseModel):
+    url: str
+
+
+def _queue_view():
+    """The queue as the panel shows it: disk order, with score/sites/bucket joined back on
+    from the offer db. Those are display fields only -- the file keeps the runner's schema."""
+    by_url = _by_any_url()
+    items = []
+    for e in _queue():
+        o = by_url.get(e.get("url"), {})
+        items.append(dict(e, score=o.get("score"), sites=o.get("sites", ""),
+                          bucket=o.get("bucket"), cities=o.get("cities", [])))
+    return items
+
+
+@app.get("/api/queue")
+def api_queue():
+    """What is queued, what runs tonight, and what last night's batch did."""
+    items = _queue_view()
+    return {"items": items, "count": len(items), "cap": NIGHTLY_COUNT,
+            "last_batch": _last_batch()}
+
+
+@app.post("/api/queue/add")
+def api_queue_add(body: UrlBody):
+    """Queue one offer. A second click on an offer already queued through its OTHER portal
+    link is not an add -- the two links are one job and would be applied to twice."""
+    o = _by_any_url().get(body.url)
+    if not o:
+        return {"url": body.url, "queued": False, "reason": "unknown offer"}
+    items = _queue()
+    urls = set(o["urls"])
+    if not any(e.get("url") in urls for e in items):
+        items.append(_worklist_entry(o))
+        _save_queue(items)
+    return {"url": body.url, "queued": True, "count": len(items)}
+
+
+class OrderBody(BaseModel):
     urls: list[str]
 
 
-@app.post("/api/worklist")
-def api_worklist(body: WorklistBody):
-    """Write the picked offers to runner/data/worklist.json in the shape the runner consumes."""
-    by_url = _by_any_url()
-    items = []
-    for u in body.urls:
-        o = by_url.get(u)
-        if not o:
-            continue
-        items.append({
+@app.post("/api/queue/reorder")
+def api_queue_reorder(body: OrderBody):
+    """Queue order IS run order, so a drag is a real decision: it picks what tonight's --limit
+    reaches. Applied to the file, not to the order the page was holding -- the runner deletes
+    from it while you drag, and an entry it dropped must stay dropped."""
+    rest = {e.get("url"): e for e in _queue()}
+    items = [rest.pop(u) for u in body.urls if u in rest]
+    items.extend(rest.values())          # queued from another tab mid-drag: keep, at the end
+    _save_queue(items)
+    return {"items": _queue_view(), "count": len(items), "cap": NIGHTLY_COUNT,
+            "last_batch": _last_batch()}
+
+
+@app.post("/api/queue/remove")
+def api_queue_remove(body: UrlBody):
+    """Unqueue one offer, whichever of its links it was queued under."""
+    urls = set(_offer_urls(body.url))
+    items = [e for e in _queue() if e.get("url") not in urls]
+    _save_queue(items)
+    return {"url": body.url, "queued": False, "count": len(items)}
+
+
+# ---- the dig-deeper list -------------------------------------------------------------------
+
+@app.get("/api/dig")
+def api_dig():
+    """The outreach list in QUEUE order. It is the same offers, so one order serves both: you
+    work the list by hand in the order the bot applies to it, and the queue's drag is the only
+    place that order is decided. Entries the runner has already drained off the queue keep
+    their file order, behind the queued ones."""
+    rank = {e.get("url"): i for i, e in enumerate(_queue())}
+    items = sorted(_dig().values(), key=lambda d: rank.get(d.get("url"), len(rank)))
+    return {"items": items, "count": len(items)}
+
+
+@app.post("/api/dig/add")
+def api_dig_add(body: UrlBody):
+    """Also chase this one by hand. Additive to the queue, never instead of it: the bot still
+    applies through the portal while you go find a human to write to."""
+    o = _by_any_url().get(body.url)
+    if not o:
+        return {"url": body.url, "dig": False, "reason": "unknown offer"}
+    dig = _dig()
+    if not any(u in dig for u in o["urls"]):
+        # In front, not appended: the panel shows these in queue order, and file order is
+        # the fallback for entries the runner has already drained off the queue -- newest
+        # first is the right fallback, they are the ones you were about to write to.
+        dig = {o["url"]: {
             "url": o["url"],
-            "title": o["title"],
             "company": o["company"],
-            "location": ", ".join(o["cities"]),
-            "stack": o["stack"],
-            "apply_method": o.get("apply_method", ""),
+            "title": o["title"],
             "apply_url": o.get("apply_url", ""),
-            "status": "pending",
-        })
-    WORKLIST.parent.mkdir(parents=True, exist_ok=True)
-    WORKLIST.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"written": len(items), "path": str(WORKLIST)}
+            "cities": o.get("cities", []),
+            "score": o.get("score"),
+            "added_at": datetime.now(timezone.utc).isoformat(),
+            "note": "",
+        }, **dig}
+        _save_dig(dig)
+    return {"url": body.url, "dig": True, "count": len(dig)}
+
+
+@app.post("/api/dig/remove")
+def api_dig_remove(body: UrlBody):
+    dig = _dig()
+    for u in _offer_urls(body.url):
+        dig.pop(u, None)
+    _save_dig(dig)
+    return {"url": body.url, "dig": False, "count": len(dig)}
+
+
+class DigNoteBody(BaseModel):
+    url: str
+    note: str = ""
+
+
+@app.post("/api/dig/note")
+def api_dig_note(body: DigNoteBody):
+    """Your draft of the outreach: the angle, who to reach, what to ask. Stored against the
+    link the entry was filed under, not necessarily the one you typed it from."""
+    dig = _dig()
+    key = next((u for u in _offer_urls(body.url) if u in dig), None)
+    if key is None:
+        return {"url": body.url, "note": None, "reason": "not on the dig list"}
+    dig[key]["note"] = body.note.strip()
+    _save_dig(dig)
+    return {"url": key, "note": dig[key]["note"]}
+
+
+# The pages share static/offer.js + offer.css, and StaticFiles sends no Cache-Control, so a
+# browser is free to keep an old copy of a file the page it just loaded depends on. New HTML
+# calling into old JS fails silently -- a row simply loses its pick button. Stamp every /static
+# link with the file's mtime, so editing one is the same as pointing the page at a new URL.
+def _page(path: Path) -> HTMLResponse:
+    def stamp(m: "re.Match[str]") -> str:
+        f = HERE / "static" / m.group(1)
+        v = int(f.stat().st_mtime) if f.exists() else 0
+        return f"/static/{m.group(1)}?v={v}"
+    html = re.sub(r"/static/([A-Za-z0-9_.-]+)", stamp, path.read_text(encoding="utf-8"))
+    return HTMLResponse(html)
 
 
 @app.get("/")
 def index():
-    return FileResponse(PAGE)
+    return _page(PAGE)
 
 
 @app.get("/harvest")
 def harvest_page():
-    return FileResponse(HARVEST_PAGE)
+    return _page(HARVEST_PAGE)
 
 
 @app.get("/history")
 def history_page():
-    return FileResponse(HISTORY_PAGE)
+    return _page(HISTORY_PAGE)
 
 
 if __name__ == "__main__":

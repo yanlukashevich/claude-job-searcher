@@ -1,7 +1,7 @@
 /* The offer row, shared by every page that lists offers.
    Renders the collapsed line (offerLi) and the panel it expands into (detailHtml), and wires
-   the clicks inside a list (wireOfferList): expand/collapse, the pick checkbox, "I applied by
-   hand", the score override and the copy-prompt button.
+   the clicks inside a list (wireOfferList): expand/collapse, the tri-state pick button,
+   "I applied by hand", the score override and the copy-prompt button.
 
    The host page supplies the context — which offers it holds and how to redraw itself — so the
    cockpit's grouped list and the harvest page's "new this run" list get the same row without
@@ -42,9 +42,25 @@ function whyHtml(w){
                .replace(/−.+$/,m=>'<span class="neg">'+m+'</span>');
 }
 
-// One offer row. `sel` is the worklist selection Set, or null on pages that do not pick offers
-// (no Set, no checkbox) — everything else about the row is the same either way.
-function offerLi(o, sel){
+// The pick control: one button, three states, each click a server write.
+//   empty -> queued           the nightly runner will apply to it
+//   queued -> queued + dig    still queued, plus on the outreach list you work by hand
+//   both -> empty             off both lists
+// State comes off the offer object (o.queued / o.dig), which the API fills from the two files
+// on every request — so a refresh, a second tab, or the runner draining the queue overnight
+// all show the same thing without the page remembering anything.
+function pickBtn(o){
+  if(o.dig)    return `<button class="pick both" data-u="${attr(o.url)}"`
+    +` title="queued AND on the dig-deeper list — click to drop both">✓🔎</button>`;
+  if(o.queued) return `<button class="pick on" data-u="${attr(o.url)}"`
+    +` title="queued for the nightly run — click to also dig deeper">✓</button>`;
+  return `<button class="pick" data-u="${attr(o.url)}"`
+    +` title="click to queue for the nightly run">☐</button>`;
+}
+
+// One offer row. `pick` is false on pages that do not pick offers (no button) — everything
+// else about the row is the same either way.
+function offerLi(o, pick){
   const applied=!!o.applied_by;
   const meta=[o.level,o.workplace,(o.cities||[]).join(', '),o.salary,o.stack]
     .filter(Boolean).map(x=>`<span class="badge">${esc(x)}</span>`).join(' ');
@@ -55,8 +71,7 @@ function offerLi(o, sel){
   }else if(o.applied_by==='manual'){
     pill=`<span class="pill manual">applied by me</span>`;
   }
-  const checkbox=(!sel||applied)?'' :
-    `<input type="checkbox" class="pick" data-u="${attr(o.url)}" ${sel.has(o.url)?'checked':''}>`;
+  const picker=(pick===false||applied)?'' : pickBtn(o);
   const isManual=o.applied_by==='manual';
   const mark=`<button class="markbtn${isManual?' on':''}" data-u="${attr(o.url)}">${isManual?'✓ applied by me':'I applied by hand'}</button>`;
   const title=o.url?`<a class="ttl" href="${attr(o.url)}" target="_blank" onclick="event.stopPropagation()">${esc(o.title)}</a>`
@@ -67,7 +82,7 @@ function offerLi(o, sel){
     ?`<span class="expbadge" title="off the feed since ${attr((o.archived_at||'').slice(0,10))}">expired</span>`:'';
   return `<li class="of lb${o.bucket}${applied?' applied':''}${o.archived?' expired':''}" data-u="${attr(o.url)}">
     <div class="row">
-      ${checkbox}
+      ${picker}
       <span class="score">${o.score>0?'+':''}${o.score}</span>${o.score_override?'<span class="ovr" title="manual score">✎</span>':''}
       ${title} ${site} ${newb} ${expb} ${meta} ${pill} ${mark}
       <span class="caret">▸</span>
@@ -140,21 +155,49 @@ function detailHtml(o){
   return h;
 }
 
+// Flash "✓ Copied" on a button while the text goes to the clipboard. Two callers: the
+// per-offer apply prompt and the dig-deeper list export.
+async function copyFlash(btn, text){
+  try{
+    await navigator.clipboard.writeText(text);
+    const label=btn.textContent; btn.textContent='✓ Copied'; btn.classList.add('done');
+    setTimeout(()=>{btn.textContent=label; btn.classList.remove('done');},1800);
+  }catch(err){ alert('Copy failed: '+err.message); }
+}
+
+// The dig-deeper list as a checklist you can paste anywhere — one line per company to chase.
+function digMarkdown(items){
+  return items.map(d=>`- [ ] ${d.company} — ${d.title} — ${d.url}`
+    +(d.note?` — ${d.note}`:'')).join('\n');
+}
+
+// One click on the pick button = one server write. The next state is read off the CURRENT
+// one, so the cycle is empty -> queued -> queued+dig -> empty. Nothing is kept in the page:
+// the response is applied to the offer object and the list is redrawn from it.
+async function cyclePick(o){
+  const post=(p)=>fetch(p,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({url:o.url})});
+  if(o.dig){        await Promise.all([post('/api/queue/remove'), post('/api/dig/remove')]);
+                    o.queued=false; o.dig=false; }
+  else if(o.queued){ await post('/api/dig/add');   o.dig=true; }
+  else{              await post('/api/queue/add'); o.queued=true; }
+}
+
 /* Delegated clicks for a container of offer rows. ctx:
      find(url)  -> the page's offer object for that url (so a mark or a score edit updates the
                    copy the page re-renders from), or undefined
      refresh()  -> redraw the list
-     sel        -> the worklist selection Set, or null on pages that do not pick
-     onSel()    -> called after the selection changed
+     onPick()   -> called after a pick changed the queue or the dig list, so the host page can
+                   re-fetch its panel; optional
    Clicks outside an offer row are ignored, so a page can attach its own handlers (company
    headers, filters) to the same element. */
 function wireOfferList(el, ctx){
-  const sel=ctx.sel||null;
   el.addEventListener('click',async e=>{
     const pick=e.target.closest('.pick');
     if(pick){ e.stopPropagation();
-      if(sel){ if(pick.checked) sel.add(pick.dataset.u); else sel.delete(pick.dataset.u); }
-      ctx.onSel&&ctx.onSel(); return; }
+      const o=ctx.find(pick.dataset.u);
+      if(o){ await cyclePick(o); ctx.refresh(); ctx.onPick&&ctx.onPick(); }
+      return; }
     const mark=e.target.closest('.markbtn');
     if(mark){ e.stopPropagation();
       const r=await fetch('/api/manual',{method:'POST',headers:{'content-type':'application/json'},
@@ -162,8 +205,7 @@ function wireOfferList(el, ctx){
       const d=await r.json();
       const o=ctx.find(d.url);
       if(o){ o.manual_at=d.manual_at;
-        o.applied_by = o.application ? 'bot' : (d.manual_at ? 'manual' : null);
-        if(o.applied_by && sel) sel.delete(o.url); }
+        o.applied_by = o.application ? 'bot' : (d.manual_at ? 'manual' : null); }
       ctx.refresh(); return; }
     const sbtn=e.target.closest('.scorebtn');
     if(sbtn){ e.stopPropagation();
@@ -185,13 +227,7 @@ function wireOfferList(el, ctx){
     const copy=e.target.closest('.copybtn');
     if(copy){ e.stopPropagation();
       const o=ctx.find(copy.dataset.u);
-      if(o){
-        try{
-          await navigator.clipboard.writeText(applyPrompt(o));
-          const label=copy.textContent; copy.textContent='✓ Copied'; copy.classList.add('done');
-          setTimeout(()=>{copy.textContent=label; copy.classList.remove('done');},1800);
-        }catch(err){ alert('Copy failed: '+err.message); }
-      }
+      if(o) await copyFlash(copy, applyPrompt(o));
       return; }
     // the detail body is for reading/copying -- a mouse-up ending a selection fires a click too,
     // and toggling there would collapse the panel out from under the text you just highlighted

@@ -36,9 +36,8 @@
     <button class="run" id="run">↻ Re-harvest now</button>
     <span class="status" id="status"></span>
     <span style="margin-left:auto"></span>
-    <button class="tool primary" id="write" disabled
-      title="Replaces runner/data/worklist.json with the offers ticked below — same button as the cockpit's.">Write worklist (0)</button>
-    <button class="tool" id="clearsel">clear</button>
+    <span class="cnt" id="qcnt"></span>
+    <a class="tool" href="/" title="The queue panel lives on the cockpit.">← cockpit</a>
   </div>
 </header>
 <div class="wrap">
@@ -104,15 +103,15 @@ function renderHistory(history){
     +`</tbody></table>`;
 }
 
-// The same row as the cockpit — tick for the worklist, click to expand, mark applied, adjust
-// the score, copy the apply prompt — and the same company grouping, turned around: the cockpit
+// The same row as the cockpit — the pick button queues into the same file, click to expand,
+// mark applied, adjust the score, copy the apply prompt — and the same company grouping,
+// turned around: the cockpit
 // groups every offer, this groups every COMPANY THE RUN TOUCHED. Collapsed, a group shows only
 // what came in; the header answers the question a new posting actually raises — how many
 // openings does this company have, and have I already applied to them? Expanding lists the rest.
 // The whole list is drawn: this is the one place that answers "what did the run bring in", and
 // a cap turns that into "some of what it brought in".
 let ALL=[];                       // every offer — the run's new ones plus their company context
-const SEL=new Set();              // urls picked for the worklist
 const COEXP=new Set();            // company keys whose other offers are shown
 const BIG=5;                      // a company with >= this many live offers gets the warning
 
@@ -148,10 +147,10 @@ function renderNew(){
   const groups=groupNew();
   const n=groups.reduce((s,g)=>s+g.fresh.length,0);
   if(!n){ el.innerHTML='<div class="empty">Nothing new in the last run.</div>';
-    cnt.textContent=''; updateWriteBtn(); return; }
+    cnt.textContent=''; return; }
   cnt.textContent=`${n} offer${n>1?'s':''} at ${groups.length} `
-    +`compan${groups.length>1?'ies':'y'}, best score first — tick the ones to apply to, click a `
-    +`company to see its other offers, click a row to expand it.`;
+    +`compan${groups.length>1?'ies':'y'}, best score first — the ☐ queues an offer for the `
+    +`nightly run, click a company to see its other offers, click a row to expand it.`;
   el.innerHTML=groups.map(g=>{
     const open=COEXP.has(g.key);
     const rest=g.others.length;
@@ -165,12 +164,19 @@ function renderNew(){
         ${g.live>=BIG?`<span class="co-warn">many openings — pick the best 1–2</span>`:''}
         ${(rest&&!open)?`<span class="more">+${rest} other ▾</span>`:''}
       </div>
-      <ul class="offers">${g.fresh.map(o=>offerLi(o,SEL)).join('')}</ul>
+      <ul class="offers">${g.fresh.map(o=>offerLi(o)).join('')}</ul>
       ${(rest&&open)?`<div class="co-others">its other ${rest} offer${rest>1?'s':''} — already in the db, not new this run, best score first:</div>
-        <ul class="offers">${g.others.map(o=>offerLi(o,SEL)).join('')}</ul>`:''}
+        <ul class="offers">${g.others.map(o=>offerLi(o)).join('')}</ul>`:''}
     </div>`;
   }).join('');
-  updateWriteBtn();
+}
+
+// How many offers are queued right now. The queue itself is the cockpit's panel; this page
+// only says whether picking here landed, so it stays one number.
+async function loadQueueCount(){
+  const q=await fetch('/api/queue').then(r=>r.json());
+  document.getElementById('qcnt').textContent=
+    `${q.count} queued · ${Math.min(q.count,q.cap)} run tonight`;
 }
 
 // Two calls, because the run's own numbers and the company context come from different places:
@@ -183,12 +189,7 @@ async function loadStatus(){
   renderHistory(h.history);
   ALL=o.offers;
   renderNew();
-}
-
-function updateWriteBtn(){
-  const b=document.getElementById('write');
-  b.textContent=`Write worklist (${SEL.size})`;
-  b.disabled=SEL.size===0;
+  loadQueueCount();
 }
 
 // company headers are this page's own; the offer rows are wired by offer.js, which ignores
@@ -197,27 +198,12 @@ document.getElementById('newlist').addEventListener('click',e=>{
   const coh=e.target.closest('.co-head.clk');
   if(coh){ const k=coh.dataset.co; COEXP.has(k)?COEXP.delete(k):COEXP.add(k); renderNew(); }
 });
+// The pick button posts to the same queue the cockpit's does — picking straight off a fresh
+// harvest is the point: you see what just came in and queue it without a round trip.
 wireOfferList(document.getElementById('newlist'), {
   find:u=>ALL.find(x=>x.url===u),
   refresh:renderNew,
-  sel:SEL,
-  onSel:updateWriteBtn,
-});
-
-// Same call as the cockpit's, so the file is written the same way: worklist.json is REPLACED
-// by what is ticked here, not appended to. Picking straight off a fresh harvest is the point —
-// you see what just came in and queue it without a round trip through the cockpit.
-document.getElementById('write').addEventListener('click',async()=>{
-  const r=await fetch('/api/worklist',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({urls:[...SEL]})});
-  const d=await r.json();
-  const b=document.getElementById('write');
-  b.textContent=`✓ wrote ${d.written} → runner/data/worklist.json`;
-  setTimeout(updateWriteBtn,2500);
-});
-
-document.getElementById('clearsel').addEventListener('click',()=>{
-  SEL.clear(); renderNew();
+  onPick:loadQueueCount,
 });
 
 document.getElementById('run').addEventListener('click',async()=>{
@@ -232,7 +218,6 @@ document.getElementById('run').addEventListener('click',async()=>{
     const r=await fetch('/api/harvest',{method:'POST'});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const d=await r.json();
-    SEL.clear();          // the list below is about to be a different run's offers
     await loadStatus();
     st.className='status ok';
     st.textContent=`✓ done — +${d.added} new, ${d.archived} expired, ${d.revived} revived`;

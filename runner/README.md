@@ -5,12 +5,12 @@ Replaces the Cowork orchestrator. See `docs/COWORK_TO_CLAUDE_CODE.md` for why.
 ```powershell
 python runner\run_batch.py --dry-run          # print the queue and the exact command
 python runner\run_batch.py --mode review      # fill everything, stop before Submit (default)
-python runner\run_batch.py --mode auto --limit 5
+python runner\run_batch.py --mode auto --limit 10
 ```
 
 The applier runs on **sonnet** (`--model`, override per run). `--limit N` takes the first N
-offers; `--pick` takes the ones you name, by 1-based worklist position: `--pick 1`, `--pick 3-5`,
-`--pick 2,4`. That is how one worklist gets split across several runs with different modes.
+offers; `--pick` takes the ones you name, by 1-based queue position: `--pick 1`, `--pick 3-5`,
+`--pick 2,4`. That is how one queue gets split across several runs with different modes.
 
 ## What it does
 
@@ -20,6 +20,62 @@ Chrome tab, so never parallelise this.
 
 Chrome comes up first: it checks `127.0.0.1:9222/json/version` and, if silent, detaches
 `tools\mcp_webfile\start_chrome.ps1` and waits for the port.
+
+## The worklist is a queue
+
+You add to `data\worklist.json` one click at a time in the cockpit, over days; this drains it.
+An offer is removed **as soon as it has a log line** — `applied_*`, `filled_review` and
+`blocked` alike, because all three are attempts and re-applying to them is exactly what the
+queue prevents. `--keep` leaves the file alone for a run.
+
+`consume()` re-reads the file before every removal and replaces it atomically (`.tmp` +
+`os.replace`, the same as `finder/app.py`). You can keep clicking offers into the queue while a
+batch runs; a whole-file write from a stale in-memory copy would erase them.
+
+## The usage limit stops the batch, not the queue
+
+A quota wall has no dedicated CLI subtype. It surfaces as `subtype: "error_during_execution"`
+with the human sentence in a top-level `errors: []` array, so `envelope_meta()` keeps that field
+and `hit_usage_limit()` matches it against `LIMIT_MARKERS` (plus `api_error_status == 429` and
+`subtype == "error_max_budget_usd"`) across stdout, stderr and `errors`.
+
+On a match the batch **breaks immediately**: no application log line, so the cockpit never marks
+the offer attempted, and no `consume()`, so it is first in line tomorrow night. `main()` returns
+**2**, which is how Task Scheduler tells a stopped night from a finished one. Without this, a
+wall burned every remaining offer as `blocked / applier-failure` — which the cockpit reads as
+"already attempted", quietly poisoning them.
+
+Testing it does not require waiting for a real wall:
+
+```powershell
+$env:RUNBATCH_FAKE_LIMIT=2
+python runner\run_batch.py --mode review --limit 3     # offer 2 hits the sentinel
+```
+
+## Nightly
+
+```powershell
+powershell -File runner\register_nightly.ps1 -Count 3    # register; -Now fires it once
+powershell -File runner\register_nightly.ps1 -Unregister
+```
+
+`JobSeracher-NightlyApplier` runs `nightly.ps1` at 23:00 daily: it appends a dated block to
+`data\nightly.log`, exits early if the queue is empty, runs `--mode auto --limit <Count>` and
+records the exit code (0 finished, 1 nothing to do, 2 stopped on the usage limit).
+
+**`--mode auto` really submits.** Register with `-Count 3` for the first week and read
+`data\nightly.log` in the morning; three unattended submissions is a cheap way to find out
+whether the autoclick and the Chrome preflight hold up overnight before trusting it with ten.
+
+The task runs **in your session** — so the machine must be awake and logged on at 23:00, and
+Windows never has to store a password. `-MultipleInstances IgnoreNew` keeps a long batch from
+being joined by the next night's. The 4-hour limit is sized off real runs (222 s / 335 s / 615 s
+per offer in `run_log.jsonl`) against the 900 s per-offer timeout: ten offers cannot exceed
+~2.5 h, so it only fires on something genuinely wedged.
+
+There is no second scheduled task. The hourly `JobSeracher-AutoWorklist` picker was deleted
+along with `finder/auto_worklist.py` — it rewrote the queue every hour at :40, which a
+hand-picked queue cannot survive.
 
 ## The browser's second permission gate
 
@@ -73,7 +129,14 @@ unchanged.
 - The url is taken from the worklist, not from the applier — the cockpit joins the log onto the
   offer list by url. A mismatch is recorded in `runner\data\run_log.jsonl`.
 
-## Diagnostics: run_log.jsonl and stats.py
+## Diagnostics: batch_log.jsonl, run_log.jsonl and stats.py
+
+`data\batch_log.jsonl` gets one line per **batch** — `started`, `finished`, `mode`, `limit`,
+`attempted`, `applied`, `review`, `blocked`, `aborted`, `cost_usd`, `queue_left`. Nobody is
+watching stdout at 23:00 and `run_log.jsonl` is per-offer, so this is how you tell in the
+morning whether the night ran at all and how it ended. The cockpit's queue panel reads its last
+line as "last batch".
+
 
 `runner\data\run_log.jsonl` gets one line per launch, taken from the CLI's result envelope: exit
 code, wall clock, `duration_api_ms`, cost, the token breakdown (`tokens.cache_read` against
