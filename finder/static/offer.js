@@ -113,6 +113,77 @@ function applyPrompt(o){
     +`JSON object you logged.`;
 }
 
+/* The offer's own text — the duties and requirements no listing page carries. Downloaded by
+   finder/descriptions.py (slowly, after each harvest) and fetched one row at a time here: the
+   list holds thousands of offers and the panel only ever shows one.
+   Kept in a page-level Map so a re-render — a pick click, a saved score — redraws the text
+   from memory instead of asking the server again. */
+const DESCS=new Map();
+
+// justjoin's body has no headings of its own, so its two section types are drawn without one.
+const UNTITLED=new Set(['description','bullets']);
+// pracuj types its sections instead. An unknown type falls through to its raw name, which is
+// readable enough and says a new section type has appeared.
+const SECLABEL={
+  'about-project':'About the project', responsibilities:'Your responsibilities',
+  'requirements-expected':'Requirements', 'requirements-optional':'Nice to have',
+  'technologies-expected':'Technologies — expected', 'technologies-optional':'Technologies — optional',
+  'technologies-os':'Operating systems', 'development-practices':'Development practices',
+  'work-organization-work-style':'How the work is organised',
+  'work-organization-team-size':'Team size', 'work-organization-team-members':'The team',
+  'recruitment-stages':'Recruitment stages', offered:'What they offer', benefits:'Benefits',
+  'training-space':'Training', 'additional-module':'More from the employer',
+  'about-us':'About the company', 'about-us-description':'About the company'};
+
+function descBody(rec){
+  if(!rec||rec.status!=='ok') return '<div class="descnote">No description on the portal page.</div>';
+  const secs=(rec.sections||[]).filter(s=>(s.items||[]).length);
+  if(!secs.length) return '<div class="descnote">The portal page carried no text.</div>';
+  return secs.map(s=>{
+    // `description` is prose — the paragraphs were paragraphs before the HTML was stripped, and
+    // bulleting them would invent structure the offer never had. Everything else IS a list.
+    const body=s.type==='description'
+      ? s.items.map(t=>`<p>${esc(t)}</p>`).join('')
+      : `<ul>${s.items.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`;
+    const head=UNTITLED.has(s.type)
+      ? '' : `<div class="dsec">${esc(SECLABEL[s.type]||s.type)}</div>`;
+    return head+body;
+  }).join('');
+}
+
+// What the box holds before anything is fetched. o.desc is the status the API joined on:
+// "ok" = downloaded, fill it when the row opens; "gone" = the portal deleted the offer;
+// nothing = never fetched, so offer the button.
+function descHtml(o){
+  const box=b=>`<div class="desc" data-u="${attr(o.url)}">${b}</div>`;
+  const rec=DESCS.get(o.url);
+  if(rec) return box(descBody(rec));
+  if(o.desc==='gone') return box('<div class="descnote">The portal no longer has this offer — '
+    +'nothing left to download.</div>');
+  if(o.desc==='ok') return box('<div class="descnote">loading…</div>');
+  return box('<div class="descnote">No description downloaded yet — the background pass only '
+    +'takes offers from the last seven days.</div>'
+    +`<button class="descbtn" data-u="${attr(o.url)}">⤓ Fetch description</button>`);
+}
+
+// One request per opened row, and only for an offer the server says it has text for.
+async function loadDesc(li, ctx){
+  const box=li.querySelector('.desc');
+  if(!box||box.dataset.done) return;
+  const o=ctx.find(box.dataset.u);
+  if(!o||o.desc!=='ok'||DESCS.has(o.url)) return;
+  box.dataset.done='1';
+  try{
+    const r=await fetch('/api/description?url='+encodeURIComponent(o.url));
+    const rec=await r.json();
+    if(rec&&rec.status==='ok') DESCS.set(o.url, rec);
+    box.innerHTML=descBody(rec);
+  }catch(err){
+    delete box.dataset.done;                       // a dropped request is worth one more click
+    box.innerHTML=`<div class="descnote err">could not load: ${esc(err.message)}</div>`;
+  }
+}
+
 function detailHtml(o){
   let h='';
   if(o.archived) h+=`<div class="expnote">Expired — gone from every feed that carried it, since the harvest of
@@ -120,6 +191,7 @@ function detailHtml(o){
   h+=`<div class="skills">${esc((o.skills||[]).join(' · '))||'—'}</div>`;
   h+=`<div class="why">${whyHtml(o.why)}</div>`;
   h+=srcLinks(o);
+  h+=descHtml(o);
   const a=o.application;
   if(a){
     const answers=(a.composed_answers||[]).filter(Boolean);
@@ -249,6 +321,21 @@ function wireOfferList(el, ctx){
       // re-sort/relabel with the new score after a beat so the "✓ Saved" flash is visible
       setTimeout(ctx.refresh,650);
       return; }
+    const dbtn=e.target.closest('.descbtn');
+    if(dbtn){ e.stopPropagation();
+      const o=ctx.find(dbtn.dataset.u);
+      const box=dbtn.closest('.desc');
+      if(!o||!box) return;
+      box.innerHTML='<div class="descnote">downloading…</div>';
+      const r=await fetch('/api/description/fetch',{method:'POST',
+        headers:{'content-type':'application/json'},body:JSON.stringify({url:o.url})});
+      const rec=await r.json();
+      if(rec.error){ box.innerHTML=`<div class="descnote err">${esc(rec.error)}</div>`; return; }
+      // the row keeps the new status, so a later re-render draws the text, not the button
+      o.desc=rec.status;
+      if(rec.status==='ok') DESCS.set(o.url, rec);
+      box.innerHTML=descBody(rec);
+      return; }
     const copy=e.target.closest('.copybtn');
     if(copy){ e.stopPropagation();
       const o=ctx.find(copy.dataset.u);
@@ -262,5 +349,6 @@ function wireOfferList(el, ctx){
     const s=window.getSelection();
     if(s && !s.isCollapsed && s.toString().trim() && li.contains(s.anchorNode)) return;
     li.classList.toggle('open');
+    if(li.classList.contains('open')) loadDesc(li, ctx);
   });
 }

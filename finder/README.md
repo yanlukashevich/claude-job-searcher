@@ -11,6 +11,8 @@ Cowork. Plain terminal in the project root.
    harvest_pracuj.py   CODE  pracuj listing -> the same file, same row shape
 2. app.py       CODE  serves the cockpit: joins offers_db + bot log + your manual
                       marks + the queue, groups by company
+   descriptions.py CODE  started by the ↻ Harvest button; ten minutes later it downloads
+                      the new offers' own text -> data/descriptions.jsonl, slowly
 3. (you) review the cockpit, click 1-2 per company into the queue — no "write" step,
                       each click is a server write to runner/data/worklist.json
 4. runner/run_batch.py drains that queue at 23:00, appends to applications_log.jsonl,
@@ -36,6 +38,8 @@ python finder\app.py
 
 The **↻ Harvest** button in the cockpit runs *both* portals in one go, which is the normal
 way to do it — the CLI scripts exist so a single portal can be re-pulled or debugged alone.
+It also starts `descriptions.py` in the background (see below); the CLI harvesters do not, so
+run it by hand after them if you want the texts.
 
 The **cockpit** (`app.py` + `page.html`) is the one place you look. Offers are grouped by
 company; a company with many openings is flagged so you review and pick the best 1–2 instead
@@ -160,6 +164,59 @@ log instead of the browser. The legacy files are frozen for reference (`legacy/R
 
 Tuning loop for scoring: edit `prototype\keywords.py` → restart `app.py` → refresh the tab.
 
+## Offer descriptions
+
+The listing feeds carry title, company, skills and salary — never the actual offer text. That
+lives on each offer's own page, one request per offer, so `descriptions.py` downloads it as a
+slow background pass and the cockpit shows it when you expand a row.
+
+The **↻ Harvest** button starts it as a child process (`--delay 600`) and returns immediately.
+Ten minutes later — long enough for the harvest's burst of requests to cool down — it builds
+its to-do list: offers added in the last 7 days, still live, with no description yet and not in
+`1_KILL` / `2_VETO`, **best score first**. Then one offer every 2–6 seconds, about 15–20 minutes
+for a normal harvest. Sorting by score is what makes being cut short harmless: the offers you
+would have opened are the ones already done.
+
+It stops, immediately and without retrying, on any of:
+
+| stop | why |
+|---|---|
+| `403` / `429` from a portal | the answer to "am I being rude" — stop asking, resume after the next harvest |
+| 3 errors in a row | timeouts happen; three in a row is something being wrong |
+| 300 offers | a run is never open-ended |
+| local time 22:30 | the 23:00 applier gets the connection to itself |
+| `textSections` / `__NEXT_DATA__` gone | the payload moved: stop loudly rather than save thousands of empty rows |
+
+Whatever it did not reach stays on the list and is picked up after the next harvest. The
+`/harvest` page shows where it is ("waiting, starts 12:10" → "downloading 45 of 190" → "done:
+188 saved, 2 gone"), polling every 15 s and stopping once the run is over. Like the outreach
+sender, it dies with the server; nothing is lost, the next harvest resumes.
+
+Where the text comes from, per portal:
+
+- **justjoin** — `GET justjoin.it/api/candidate-api/offers/<slug>`, whose `body` is a small
+  HTML fragment; stdlib `html.parser` keeps the line breaks and drops every tag. ~9 KB.
+- **pracuj** — the offer page's `__NEXT_DATA__` blob, already split into typed sections
+  (`responsibilities`, `requirements-expected`, `offered`, …). ~400 KB, and plain `curl` gets a
+  403 — `common.get_html`'s browser headers are what pass the bouncer. The `textSections` key is
+  found by a **recursive search**, not a path: that blob has moved once already.
+
+An offer carried by both portals is fetched from justjoin — same text, a fortieth of the bytes.
+
+An offer the portal has deleted is recorded `gone` and never asked about again. pracuj is the
+awkward one: a removed offer is **200 with the generic listing page**, not a 404, and
+`__NEXT_DATA__.page` (`/offerview` or not) is what tells the two apart.
+
+**Older offers are not fetched in bulk** — 5,600 live offers is 5,600 requests for text you will
+mostly never read. Expanding one in the cockpit shows a **⤓ Fetch description** button instead,
+which downloads that single offer on the spot.
+
+```powershell
+python finder\descriptions.py                # run now, no wait
+python finder\descriptions.py --cap 0        # just print how many offers are pending
+python finder\descriptions.py --url URL      # one offer, now
+```
+
 ## Outreach
 
 Each dig-deeper offer is a **card** in `data/dig_deeper.json`, and the card is the whole
@@ -251,6 +308,10 @@ Edit the file in place; the page and the sender pick your edits up on their own.
 | `test_identity.py` | What must and must not collapse into one offer, plus the source lifecycle. `python finder/test_identity.py`. |
 | `data/offers_db.jsonl` | Every offer ever seen; one line per unique job. Rows are never deleted — gone-from-the-feed ones carry `archived_at`. |
 | `data/company_aliases.json` | Hand-written company spellings → the name to use. Merges *and* renames; see Identity & dedup. |
+| `descriptions.py` | Downloads each new offer's own text, slowly, after a harvest. Stop rules and the two portals' shapes: Offer descriptions. |
+| `data/descriptions.jsonl` | One line per offer whose text was downloaded (`ok` or `gone`), append-only, keyed by offer id. Last line for an id wins. |
+| `data/descriptions_run.json` | What the background pass is doing right now — the `/harvest` status line reads it. |
+| `data/descriptions.log` | The last pass's output, one line per offer. Overwritten by the next run. |
 | `prototype/` | **The scorer + review page.** `keywords.py` is the file you tune. |
 | `data/dig_deeper.json` | The outreach cards: `{url: card}`, one per dig-deeper offer, with its contacts and email draft. Not in `src/` — the applier must never pay tokens for it. |
 | `outreach.py` | The card rules (stage, approval stamp, problems, held), shared by `app.py` and the sender. A library, no CLI. |

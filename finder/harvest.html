@@ -20,6 +20,8 @@
   th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}
   th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
   td.num{text-align:right;font-variant-numeric:tabular-nums}
+  #desc b{color:var(--fg);font-weight:600}
+  #desc .warn{color:var(--warn)}
   .part{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
     border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:0 5px;
     margin-left:6px;cursor:help}
@@ -42,6 +44,7 @@
 <div class="wrap">
   <div class="stats" id="stats"></div>
   <div class="when" id="when"></div>
+  <div class="when" id="desc"></div>
 
   <h2>Recent runs</h2>
   <div id="history"></div>
@@ -170,6 +173,44 @@ function renderNew(){
   }).join('');
 }
 
+// The background pass that downloads each new offer's own text (finder/descriptions.py),
+// started by /api/harvest. It sleeps ten minutes first, then takes a quarter of an hour, so
+// the only honest thing the page can do is say where it is — and stop asking once it is over.
+let DESCTIMER=null;
+function renderDescStatus(d){
+  const el=document.getElementById('desc');
+  const hhmm=t=>t?new Date(t).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}):'?';
+  if(!d||!d.state){ el.innerHTML=''; return false; }
+  const done=(d.ok||0)+(d.gone||0);
+  // The process and the file disagree only when a run was killed mid-way (the server
+  // restarted, you closed the window) — say so instead of counting up forever.
+  if(!d.alive && (d.state==='waiting'||d.state==='running')){
+    el.innerHTML=`Descriptions: <span class="warn">stopped early</span> after ${done}`
+      +` — the next harvest picks up the rest.`;
+    return false;
+  }
+  if(d.state==='waiting'){
+    el.innerHTML=`Descriptions: waiting for the feed to cool down, starts <b>${esc(hhmm(d.starts_at))}</b>.`;
+    return true;
+  }
+  if(d.state==='running'){
+    el.innerHTML=`Descriptions: downloading <b>${done}</b> of ${d.total==null?'?':d.total},`
+      +` one every few seconds.`;
+    return true;
+  }
+  const gone=d.gone?`, ${d.gone} gone from the portal`:'';
+  el.innerHTML=d.state==='stopped'
+    ? `Descriptions: <span class="warn">stopped</span> — ${esc(d.reason||'')} (${d.ok||0} saved${gone}).`
+    : `Descriptions: done — <b>${d.ok||0}</b> saved${gone}.`;
+  return false;
+}
+async function loadDescStatus(){
+  const d=await fetch('/api/descriptions/status').then(r=>r.json()).catch(()=>null);
+  const again=renderDescStatus(d);
+  clearTimeout(DESCTIMER);
+  if(again) DESCTIMER=setTimeout(loadDescStatus, 15000);
+}
+
 // How many offers are queued right now. The queue itself is the cockpit's panel; this page
 // only says whether picking here landed, so it stays one number.
 async function loadQueueCount(){
@@ -189,6 +230,7 @@ async function loadStatus(){
   ALL=o.offers;
   renderNew();
   loadQueueCount();
+  loadDescStatus();
 }
 
 // company headers are this page's own; the offer rows are wired by offer.js, which ignores

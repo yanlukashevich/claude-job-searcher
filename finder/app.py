@@ -39,11 +39,15 @@ sys.path.insert(0, str(HERE / "prototype"))      # scoring, keywords
 sys.path.insert(0, str(HERE.parent / "runner"))  # stats (run diagnostics)
 
 from common import (ROOT, HARVEST_LOG, LAST_HARVEST,   # noqa: E402
-                    canonical_names, log_run, merge, norm_company, write_json, write_jsonl)
+                    append_jsonl, canonical_names, log_run, merge, norm_company,
+                    write_json, write_jsonl)
 from scoring import classify, BUCKETS            # noqa: E402
 import stats                                     # noqa: E402  runner/stats.py
 import harvest                                    # noqa: E402  justjoin
 import harvest_pracuj                             # noqa: E402  pracuj.pl
+# The offer texts, finder/data/descriptions.jsonl: fetched slowly in the background after a
+# harvest, shown when a row is expanded. Same stance as the outreach list -- out of src/.
+import descriptions                                # noqa: E402
 # The outreach list, finder/data/dig_deeper.json: offers you also chase by hand, one card each
 # with its contacts and email draft. Deliberately in finder/data/, not src/ -- the applier must
 # never pay tokens for it. The card rules live in outreach.py, shared with send_outreach.py.
@@ -53,6 +57,7 @@ import send_outreach                              # noqa: E402  the /outreach Se
 OFFERS_DB = HERE / "data" / "offers_db.jsonl"
 MANUAL = HERE / "data" / "manual_applied.json"
 MANUAL_SCORES = HERE / "data" / "manual_scores.json"   # url -> {score, reason, at} (your overrides)
+DESC_DB = descriptions.DESC_DB                   # offer id -> its downloaded text (append-only)
 LOG = ROOT / "runner" / "data" / "applications_log.jsonl"
 WORKLIST = ROOT / "runner" / "data" / "worklist.json"
 BATCH_LOG = ROOT / "runner" / "data" / "batch_log.jsonl"   # one line per nightly batch
@@ -145,6 +150,9 @@ def _scored_offers():
         cat = o.get("category", "?")
         ckey = norm_company(o.get("company", ""))
         offers.append({
+            # the offer's identity, not a link: descriptions.jsonl is keyed by it, because it
+            # is what survives the justjoin+pracuj collapse into one row.
+            "id": o["id"],
             "url": _url_of(o),
             "urls": _urls_of(o),             # every link — what applied-status is joined on
             "sites": _sites_of(o),           # 'j' / 'p' / 'jp' — which portals carry it
@@ -174,6 +182,21 @@ def _scored_offers():
         })
     _cache.update(mtime=mtime, offers=offers)
     return offers
+
+
+# descriptions.jsonl grows one line per fetched offer and is read on every /api/offers, so it
+# gets the same treatment as the offer db: parsed once, rebuilt only when the file's mtime moves.
+_desc_cache = {"mtime": None, "index": None}
+
+
+def _descriptions():
+    """{offer id: its newest record}. The file is append-only and a re-fetch adds a line, so
+    the LAST line for an id is the one that counts — the same rule as the bot's log."""
+    mtime = DESC_DB.stat().st_mtime if DESC_DB.exists() else 0
+    if _desc_cache["mtime"] != mtime:
+        _desc_cache.update(mtime=mtime,
+                           index={r["id"]: r for r in _read_jsonl(DESC_DB) if r.get("id")})
+    return _desc_cache["index"]
 
 
 def _by_any_url():
@@ -280,6 +303,7 @@ def _enriched_offers():
     bot = _bot_applications()
     manual = _manual()
     scores = _manual_scores()
+    desc = _descriptions()
     queued = {e.get("url") for e in _queue()}
     try:
         dig = outreach.load()
@@ -302,6 +326,10 @@ def _enriched_offers():
         if sc:
             row["score"] = sc["score"]
         row["archived"] = bool(o.get("archived_at"))
+        # "ok" / "gone" / None — whether the panel offers text, an explanation, or the button.
+        # The status only; the text is fetched when the row is opened, so a list of 5,000
+        # offers never carries 5,000 job descriptions.
+        row["desc"] = (desc.get(o["id"]) or {}).get("status")
         # Applied through ANY of the offer's links counts as applied. See _urls_of.
         app_row = next((bot[u] for u in o["urls"] if u in bot), None)
         row["application"] = app_row               # full bot log line, or None
@@ -350,6 +378,10 @@ def api_harvest():
     rows, summary = merge(_read_jsonl(OFFERS_DB), harvests, at)
     write_jsonl(OFFERS_DB, rows)
     log_run(summary)
+    # The offer texts the listing feeds do not carry, downloaded slowly in the background.
+    # Nothing here waits for it: it sleeps ten minutes first so this run's burst of requests
+    # cools down, and the harvest page shows what it is doing.
+    summary["descriptions"] = _start_fetcher(DESC_DELAY)
     return summary
 
 
@@ -783,6 +815,78 @@ def api_send(body: SendBody):
                                             stderr=subprocess.STDOUT, env=env)
     _sending["started"] = started
     return _send_state()
+
+
+# ---- the offer texts -------------------------------------------------------------------------
+#
+# The listing feeds carry no description, so finder/descriptions.py downloads them one at a time
+# from the offers' own pages. It runs as a child of this server -- started after a harvest, the
+# same arrangement as the outreach sender, and it dies with the server: whatever it did not
+# reach is simply picked up after the next harvest.
+
+DESC_LOG = HERE / "data" / "descriptions.log"
+DESC_DELAY = 600          # seconds between the end of a harvest and the first offer page
+_fetching = {"proc": None, "started": None}
+
+
+def _fetcher_alive():
+    p = _fetching["proc"]
+    return bool(p and p.poll() is None)
+
+
+def _start_fetcher(delay):
+    """Start one background fetch pass. Returns what it did, for the harvest summary.
+
+    A second one is never started: two passes would compute the same to-do list and fetch it
+    twice as fast, which is the one thing the pacing exists to prevent."""
+    if _fetcher_alive():
+        return {"started": False, "reason": "already running"}
+    cmd = [sys.executable, "-u", str(HERE / "descriptions.py"), "--delay", str(delay)]
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")   # it prints Polish titles into a file
+    with open(DESC_LOG, "w", encoding="utf-8") as log:
+        _fetching["proc"] = subprocess.Popen(cmd, cwd=ROOT, stdout=log,
+                                             stderr=subprocess.STDOUT, env=env)
+    _fetching["started"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    return {"started": True, "delay": delay}
+
+
+@app.get("/api/descriptions/status")
+def api_descriptions_status():
+    """What the background pass is doing. `alive` is the process, `state` is what it last wrote:
+    the two disagree exactly when a run was killed mid-way (the server restarted, you closed the
+    window), and the page has to be able to say so rather than count up forever."""
+    run = {}
+    if descriptions.RUN_STATE.exists():
+        run = json.loads(descriptions.RUN_STATE.read_text(encoding="utf-8"))
+    return {**run, "alive": _fetcher_alive(), "started": _fetching["started"]}
+
+
+@app.get("/api/description")
+def api_description(url: str):
+    """One offer's text, for the panel that just opened. Keyed by offer id, so the record is
+    found whichever of the offer's portal links the row happens to show."""
+    o = _by_any_url().get(url)
+    rec = _descriptions().get(o["id"]) if o else None
+    return rec or {"status": None}
+
+
+@app.post("/api/description/fetch")
+def api_description_fetch(body: UrlBody):
+    """Download this one offer's text now — the button on an offer the background pass never
+    reached (anything older than a week, which is most of the db)."""
+    o = _by_any_url().get(body.url)
+    if not o:
+        return JSONResponse({"error": "unknown offer"}, status_code=404)
+    try:
+        rec = descriptions.fetch_one({"id": o["id"], "sources": o["sources"]})
+    except descriptions.Blocked as e:
+        return JSONResponse({"error": f"{e} — leave it alone for a while"}, status_code=409)
+    except descriptions.ShapeChanged as e:
+        return JSONResponse({"error": str(e)}, status_code=409)
+    except Exception as e:
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=502)
+    append_jsonl(DESC_DB, [rec])
+    return rec
 
 
 # The bar across the top of every page, in this order. Injected by _page() rather than written
