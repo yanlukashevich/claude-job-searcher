@@ -129,7 +129,7 @@ in `auto` stop now, in `review` fill the rest for the user and still report it b
 - Contract type ("forma współpracy") → Employment: single choice → the preferred type;
   multi-select → tick every acceptable one.
 - Notice period / availability / work mode → Availability; relocation → Personal.
-- Work authorization / "can you legally work in PL?" → Work authorization (ready PL/EN strings).
+- Work authorization / "can you legally work in PL?" → Work authorization (ready answer).
 - Language level → Languages, via the CEFR mapping in `profile.md` — after reading the form's
   actual option labels.
 - **"Years of X"** → the years-per-technology table. Present confidently but **never state more
@@ -152,7 +152,7 @@ motivation, cover letter, open questions. Write a note, not an essay:
 
 - **Optional field → exactly one short sentence. Required field → 1–2 short sentences. Hard
   cap.** Exception: when `profile.md` has a **canonical answer** matching the question, use it
-  verbatim at its own length.
+  at its own length — verbatim on a Polish form, faithfully translated on any other.
 - **Read the offer for what they actually need, then hit exactly that.** Behind the
   requirements list there is a real job: who will use this, what breaks, what this hire is
   measured on. Work that out first, then pick the **one** matching angle from `profile.md`'s
